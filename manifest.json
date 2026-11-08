@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "DataLens — Transparência e Controle Ativo de Dados (UFABC GC5)",
+  "version": "1.0.0",
+  "description": "Combate a fadiga de consentimento e dark patterns: audita cookies reais, alerta sobre dados sensíveis, rejeita banners automaticamente e sincroniza com o Dashboard DataLens.",
+  "permissions": [
+    "cookies",
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "extension/background.js"
+  },
+  "action": {
+    "default_popup": "extension/popup.html",
+    "default_title": "DataLens — Auditoria de Privacidade Ativa"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["extension/content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
