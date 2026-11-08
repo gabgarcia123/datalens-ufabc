@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DataLens — Painel de Transparência e Controle Ativo de Dados Pessoais | UFABC (GC5)</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="bg-slate-950 text-slate-100 antialiased min-h-screen flex flex-col selection:bg-teal-500 selection:text-white">
+
+  <!-- Container de Notificações Toast (Feedback Visual Imediato de IHC) -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 pointer-events-auto"></div>
+
+  <!-- CABEÇALHO SUPERIOR E NAVEGAÇÃO BIMODAL -->
+  <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-lg border-b border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      
+      <!-- Identidade Visual DataLens + Selo UFABC GC5 -->
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3.5">
+          <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center text-white shadow-lg shadow-teal-950/60 border border-teal-400/30">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <circle cx="12" cy="11" r="3"/>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-lg font-extrabold tracking-tight text-white">DataLens</h1>
+              <span class="px-2 py-0.5 rounded-md text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                UFABC • GC5
+              </span>
+            </div>
+            <p class="text-xs text-slate-400">Transparência e Controle Ativo de Dados Pessoais</p>
+          </div>
+        </div>
+
+        <!-- Botão Mobile Sobre o Projeto -->
+        <button data-action="academic-modal" data-show="true" class="lg:hidden px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold">
+          Sobre (GC5)
+        </button>
+      </div>
+
+      <!-- Abas de Navegação do Ecossistema Bimodal -->
+      <nav class="flex flex-wrap items-center gap-2" aria-label="Navegação Principal">
+        <button
+          data-nav-btn="dashboard"
+          data-action="switch-tab"
+          data-tab="dashboard"
+          class="px-4 py-2 rounded-xl text-xs font-bold bg-teal-600 text-white shadow-lg shadow-teal-950/50 flex items-center gap-2 transition"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          1. Dashboard Central (Gestão Passiva)
+        </button>
+
+        <button
+          data-nav-btn="simulator"
+          data-action="switch-tab"
+          data-tab="simulator"
+          class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 flex items-center gap-2 transition"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+          2. Simulador da Extensão (Contexto de Navegação)
+        </button>
+
+        <button
+          data-nav-btn="preferences"
+          data-action="switch-tab"
+          data-tab="preferences"
+          class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 flex items-center gap-2 transition"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg>
+          3. Preferências & Limites
+        </button>
+      </nav>
+
+      <!-- Módulo 3: Botão de Destaque para Pesquisa de Usuários / Avaliação -->
+      <div class="flex items-center gap-2.5">
+        <a
+          href="https://docs.google.com/forms/d/e/1FAIpQLScvcYIpSrS0FcLxmI9klao_sezWayYM6Y6qtL3pcaMxJLyxKg/viewform"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-xs shadow-lg flex items-center gap-2 transition"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
+          Participar da Pesquisa / Avaliar Protótipo
+        </a>
+
+        <button
+          data-action="academic-modal"
+          data-show="true"
+          class="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700"
+          title="Sobre o Projeto Acadêmico UFABC"
+        >
+          Sobre (GC5)
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- CONTEÚDO PRINCIPAL -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-8">
+
+    <!-- ================================================================== -->
+    <!-- MÓDULO 1: DASHBOARD WEB INTERATIVO (GESTÃO CONTÍNUA / PASSIVA)     -->
+    <!-- ================================================================== -->
+    <section data-tab-section="dashboard" class="space-y-6">
+      
+      <!-- Faixa de Boas-Vindas e Ações Globais de Manipulação Direta -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-teal-950/50 border border-slate-800 rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
+              Estilo de Interação: Manipulação Direta
+            </span>
+            <span class="text-xs text-slate-400">Semiótica de Alto Contraste: Verde (Seguro) • Amarelo (Analítico) • Vermelho (Terceiros)</span>
+          </div>
+          <h2 class="text-xl font-extrabold text-white">Painel Central de Transparência e Controle de Consentimentos</h2>
+          <p class="text-xs text-slate-300 max-w-3xl">
+            Monitore quais portais estão coletando seus dados pessoais, compreenda a finalidade real sem jargões jurídicos e revogue permissões abusivas com um único clique.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            data-action="bulk-action"
+            data-mode="protect_all"
+            class="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-lg shadow-teal-950/50 flex items-center gap-2 transition"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            Restringir Todos a "Apenas Essenciais"
+          </button>
+          <button
+            data-action="bulk-action"
+            data-mode="reset_demo"
+            class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold transition"
+          >
+            Restaurar Dados de Demonstração
+          </button>
+        </div>
+      </div>
+
+      <!-- 1.1 CARDS DE RESUMO (KPIs NO TOPO) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <!-- KPI 1: Total de Sites Monitorados -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-start justify-between gap-4 shadow-lg">
+          <div class="space-y-1.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">1. Domínios Auditados</span>
+            <div class="flex items-baseline gap-2">
+              <span id="kpi-total-sites" class="text-3xl font-extrabold text-white">10</span>
+              <span class="text-xs text-teal-400 font-semibold">sites monitorados</span>
+            </div>
+            <p class="text-xs text-slate-400">Histórico ativo sincronizado com a extensão do navegador.</p>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-teal-500/15 border border-teal-500/30 text-teal-400 flex items-center justify-center shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+        </div>
+
+        <!-- KPI 2: Índice de Exposição Digital -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-3 shadow-lg">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">2. Índice de Exposição Digital</span>
+              <div class="flex items-center gap-3 mt-1">
+                <span id="kpi-exposure-index" class="text-3xl font-extrabold text-white">64%</span>
+                <span id="kpi-exposure-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                  Risco Elevado
+                </span>
+              </div>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+            </div>
+          </div>
+          <div class="space-y-1">
+            <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
+              <div id="kpi-exposure-bar" class="h-full bg-rose-500 rounded-full" style="width: 64%"></div>
+            </div>
+            <p class="text-xs text-slate-400">Calculado pela severidade dos dados e número de terceiros ativos.</p>
+          </div>
+        </div>
+
+        <!-- KPI 3: Total de Rastreadores de Terceiros Bloqueados/Revogados -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-start justify-between gap-4 shadow-lg">
+          <div class="space-y-1.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">3. Rastreadores Bloqueados</span>
+            <div class="flex items-baseline gap-2">
+              <span id="kpi-blocked-trackers" class="text-3xl font-extrabold text-emerald-400">14</span>
+              <span class="text-xs text-emerald-300 font-semibold">neutralizados</span>
+            </div>
+            <p id="kpi-active-trackers" class="text-xs text-slate-400">116 ativos de 130 detectados</p>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1.2 VISUALIZAÇÃO DE DADOS (GRÁFICOS INTERATIVOS) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Gráfico 1: Rosca / Barras por Categoria de Dados Coletados -->
+        <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4 shadow-lg">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-teal-400">Distribuição Semiótica</span>
+              <h3 class="text-base font-bold text-slate-100">Dados Coletados por Categoria</h3>
+            </div>
+            <div class="inline-flex rounded-xl bg-slate-950 p-1 border border-slate-800 text-xs">
+              <button data-action="chart-mode" data-mode="donut" class="px-3 py-1 rounded-lg font-semibold text-slate-200 hover:bg-slate-800">Rosca</button>
+              <button data-action="chart-mode" data-mode="bars" class="px-3 py-1 rounded-lg font-semibold text-slate-200 hover:bg-slate-800">Barras</button>
+            </div>
+          </div>
+          <div id="category-chart-container" class="py-2"></div>
+        </div>
+
+        <!-- Gráfico 2: Linha do Tempo de Exposição e Consentimentos Concedidos -->
+        <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4 shadow-lg">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Evolução Temporal (7 Dias)</span>
+              <h3 class="text-base font-bold text-slate-100">Linha do Tempo de Exposição vs. Bloqueios</h3>
+            </div>
+            <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold">Reativo em Tempo Real</span>
+          </div>
+          <div id="timeline-chart-container" class="py-1"></div>
+        </div>
+      </div>
+
+      <!-- 1.3 LISTA FILTRÁVEL DE SITES E HISTÓRICO DE CONSENTIMENTOS -->
+      <div class="space-y-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-lg">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 class="text-lg font-bold text-slate-100">Histórico de Consentimentos e Controle Ativo por Site</h3>
+              <p class="text-xs text-slate-400">Filtre por nível de risco, data ou categoria de dado e utilize os botões de ação rápida para revogar permissões.</p>
+            </div>
+            <span id="filtered-sites-count" class="px-3 py-1 rounded-full bg-slate-800 text-teal-300 text-xs font-bold self-start sm:self-center">
+              10 de 10 sites exibidos
+            </span>
+          </div>
+
+          <!-- Barra de Busca + Filtros Rápidos -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 pt-1">
+            <!-- Busca por Nome/Domínio -->
+            <div class="lg:col-span-4 relative">
+              <input
+                id="search-input"
+                type="text"
+                placeholder="Buscar site, domínio ou setor (ex: notícias, banco)..."
+                class="w-full bg-slate-950 border border-slate-700 focus:border-teal-500 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none"
+              />
+              <span class="absolute left-3 top-2.5 text-slate-500">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              </span>
+            </div>
+
+            <!-- Filtro: Nível de Risco -->
+            <div class="lg:col-span-3">
+              <select
+                id="filter-risk"
+                class="w-full bg-slate-950 border border-slate-700 focus:border-teal-500 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none"
+              >
+                <option value="all">Nível de Risco: Todos</option>
+                <option value="high">🔴 Alto Risco (Rastreamento Terceiros)</option>
+                <option value="medium">🟡 Médio Risco (Atenção / Analytics)</option>
+                <option value="low">🟢 Baixo Risco (Seguro / Essencial)</option>
+              </select>
+            </div>
+
+            <!-- Filtro: Categoria de Dado -->
+            <div class="lg:col-span-3">
+              <select
+                id="filter-category"
+                class="w-full bg-slate-950 border border-slate-700 focus:border-teal-500 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none"
+              >
+                <option value="all">Categoria de Dado: Todas</option>
+                <option value="thirdParty">Compartilhamento com Terceiros</option>
+                <option value="marketing">Marketing & Publicidade</option>
+                <option value="analytics">Desempenho & Analytics</option>
+                <option value="essential">Cookies Essenciais</option>
+              </select>
+            </div>
+
+            <!-- Filtro: Data -->
+            <div class="lg:col-span-2 flex gap-2">
+              <select
+                id="filter-date"
+                class="w-full bg-slate-950 border border-slate-700 focus:border-teal-500 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none"
+              >
+                <option value="all">Data: Todas</option>
+                <option value="today">Acessados Hoje</option>
+                <option value="recent">Últimos 3 Dias</option>
+              </select>
+              <button
+                data-action="reset-filters"
+                class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold shrink-0"
+                title="Limpar todos os filtros"
+              >
+                Limpar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de Cards de Sites Monitorados -->
+        <div id="sites-list-container" class="space-y-4"></div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- MÓDULO 2: SIMULADOR DA EXTENSÃO WEB (MEDIAÇÃO EFÊMERA / ATIVA)     -->
+    <!-- ================================================================== -->
+    <section data-tab-section="simulator" class="hidden space-y-6">
+      <div id="simulator-Mount"></div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- MÓDULO 2.3: FORMULÁRIO DE PREFERÊNCIAS E LIMITES DE PRIVACIDADE    -->
+    <!-- ================================================================== -->
+    <section data-tab-section="preferences" class="hidden space-y-6">
+      <div id="preferences-mount"></div>
+    </section>
+
+  </main>
+
+  <!-- ==================================================================== -->
+  <!-- MÓDULO 3: RODAPÉ ACADÊMICO DISCRETO + BANNER DE PESQUISA DE USUÁRIOS -->
+  <!-- ==================================================================== -->
+  <footer class="mt-12 bg-slate-900 border-t border-slate-800">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+      <div class="flex items-center gap-3">
+        <span class="w-2.5 h-2.5 rounded-full bg-teal-400"></span>
+        <p class="font-semibold text-slate-200">
+          UFABC • Interação Humano-Computador (2026) • Grupo DataLens (GC5)
+        </p>
+      </div>
+
+      <p class="text-center md:text-left text-slate-400">
+        Grande Desafio de Pesquisa no Brasil (GC5): <em>Interação Humano-Dados, Alfabetização em Dados e Privacidade Utilizável</em>.
+      </p>
+
+      <div class="flex items-center gap-3">
+        <button data-action="academic-modal" data-show="true" class="text-teal-400 hover:underline font-semibold">
+          Fundamentação Teórica (Norman)
+        </button>
+        <span>•</span>
+        <a
+          href="https://docs.google.com/forms/d/e/1FAIpQLScvcYIpSrS0FcLxmI9klao_sezWayYM6Y6qtL3pcaMxJLyxKg/viewform"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-amber-400 hover:underline font-bold"
+        >
+          Formulário Oficial de Avaliação ↗
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- MODAL ACADÊMICO E DE PESQUISA (MÓDULO 3) -->
+  <div id="academic-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5">
+      <div class="flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-teal-400">Fundamentação de IHC & Privacidade Utilizável</span>
+          <h3 class="text-lg font-extrabold text-white mt-0.5">Sobre o Protótipo DataLens (UFABC • GC5)</h3>
+        </div>
+        <button data-action="academic-modal" data-show="false" class="text-slate-400 hover:text-white font-bold text-sm px-2">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+        <p>
+          O projeto <strong>DataLens</strong> investiga soluções de <em>Interação Humano-Dados (HDI)</em> para mitigar a <strong>fadiga de consentimento</strong> e neutralizar padrões enganosos (<em>dark patterns</em>) em avisos de privacidade na web.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+            <h4 class="font-bold text-teal-300">Significadores & Affordances (Donald Norman)</h4>
+            <p class="text-slate-400">Substituição de textos jurídicos opacos por semiótica de risco (Verde/Amarelo/Vermelho) e botões com peso visual estritamente simétrico.</p>
+          </div>
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+            <h4 class="font-bold text-amber-300">Arquitetura Bimodal</h4>
+            <p class="text-slate-400">Combina mediação efêmera no contexto da navegação (Cartão de Síntese em 5s) com gestão contínua por manipulação direta (Dashboard).</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-teal-950/40 border border-teal-500/40 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="text-xs space-y-1">
+          <p class="font-bold text-teal-200">Avalie este Protótipo na Pesquisa Oficial do Grupo!</p>
+          <p class="text-slate-300">Sua participação contribui diretamente para a validação dos requisitos de IHC na UFABC.</p>
+        </div>
+        <a
+          href="https://docs.google.com/forms/d/e/1FAIpQLScvcYIpSrS0FcLxmI9klao_sezWayYM6Y6qtL3pcaMxJLyxKg/viewform"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shrink-0 shadow-lg"
+        >
+          Abrir Google Forms ↗
+        </a>
+      </div>
+
+      <div class="flex justify-end pt-2">
+        <button data-action="academic-modal" data-show="false" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold">
+          Fechar Janela
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts Modulares da Aplicação -->
+  <script src="js/mockData.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
