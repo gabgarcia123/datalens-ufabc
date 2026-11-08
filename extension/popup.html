@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>DataLens — Extensão Ativa</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 370px;
+      background: #0F172A;
+      color: #F8FAFC;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 12.5px;
+      padding: 15px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1E293B;
+      padding-bottom: 11px;
+      margin-bottom: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #0D9488, #0F766E);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 15px;
+    }
+    .brand-title { font-size: 14px; font-weight: 800; color: #FFF; }
+    .brand-sub { font-size: 10.5px; color: #94A3B8; }
+    .badge {
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-high { background: rgba(239,68,68,0.2); color: #FCA5A5; border: 1px solid #EF4444; }
+    .badge-medium { background: rgba(245,158,11,0.2); color: #FDE68A; border: 1px solid #F59E0B; }
+    .badge-low { background: rgba(16,185,129,0.2); color: #A7F3D0; border: 1px solid #10B981; }
+
+    .site-box {
+      background: #020617;
+      border: 1px solid #1E293B;
+      border-radius: 12px;
+      padding: 11px 12px;
+      margin-bottom: 11px;
+    }
+    .domain-name {
+      font-size: 14px;
+      font-weight: 800;
+      color: #2DD4BF;
+      word-break: break-all;
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-top: 9px;
+      text-align: center;
+    }
+    .metric-pill {
+      background: #0F172A;
+      border: 1px solid #1E293B;
+      border-radius: 8px;
+      padding: 6px 4px;
+    }
+    .metric-val { font-size: 14px; font-weight: 800; display: block; }
+    .metric-lbl { font-size: 10px; color: #94A3B8; }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #94A3B8;
+      margin-bottom: 6px;
+      letter-spacing: 0.04em;
+    }
+    .items-list {
+      list-style: none;
+      background: #020617;
+      border: 1px solid #1E293B;
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin-bottom: 11px;
+      max-height: 115px;
+      overflow-y: auto;
+    }
+    .items-list li {
+      padding: 3px 0;
+      font-size: 11.5px;
+      color: #E2E8F0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+    .toggles-box {
+      background: #020617;
+      border: 1px solid #1E293B;
+      border-radius: 10px;
+      padding: 9px 11px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: #CBD5E1;
+      cursor: pointer;
+    }
+    .toggle-row input { accent-color: #0D9488; width: 15px; height: 15px; cursor: pointer; }
+
+    .btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 9px;
+    }
+    .btn {
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      background: #1E293B;
+      color: #F8FAFC;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #334155; }
+    .btn-teal {
+      background: #0D9488;
+      border-color: #14B8A6;
+      color: #FFF;
+    }
+    .btn-teal:hover { background: #0F766E; }
+    .btn-full {
+      width: 100%;
+      padding: 9px;
+      border-radius: 10px;
+      background: linear-gradient(90deg, #0D9488, #0284C7);
+      border: none;
+      color: #FFF;
+      font-weight: 800;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .status-msg {
+      display: none;
+      margin-bottom: 8px;
+      padding: 7px 9px;
+      border-radius: 8px;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid #10B981;
+      color: #A7F3D0;
+      font-size: 11.5px;
+      font-weight: 600;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand">
+      <div class="brand-icon">🛡️</div>
+      <div>
+        <div class="brand-title">DataLens Ativo</div>
+        <div class="brand-sub">UFABC • Privacidade Utilizável (GC5)</div>
+      </div>
+    </div>
+    <span id="risk-badge" class="badge badge-low">Auditando...</span>
+  </div>
+
+  <div class="site-box">
+    <div style="font-size:11px; color:#94A3B8;">Domínio da Aba Atual:</div>
+    <div id="site-domain" class="domain-name">Carregando...</div>
+
+    <div class="metrics-grid">
+      <div class="metric-pill">
+        <span id="cnt-ess" class="metric-val" style="color:#10B981;">0</span>
+        <span class="metric-lbl">Essenciais</span>
+      </div>
+      <div class="metric-pill">
+        <span id="cnt-ana" class="metric-val" style="color:#F59E0B;">0</span>
+        <span class="metric-lbl">Analytics</span>
+      </div>
+      <div class="metric-pill">
+        <span id="cnt-mkt" class="metric-val" style="color:#F97316;">0</span>
+        <span class="metric-lbl">Marketing</span>
+      </div>
+      <div class="metric-pill">
+        <span id="cnt-tp" class="metric-val" style="color:#EF4444;">0</span>
+        <span class="metric-lbl">Terceiros</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Dados & Cookies Detectados Nesta Página:</div>
+  <ul id="detected-list" class="items-list">
+    <li>Inspecionando cookies e campos do site...</li>
+  </ul>
+
+  <div id="status-msg" class="status-msg"></div>
+
+  <div class="btn-group">
+    <button id="btn-reject-clean" class="btn btn-teal">
+      🚫 Rejeitar & Limpar Não-Essenciais
+    </button>
+    <button id="btn-show-card" class="btn">
+      ✨ Exibir Síntese (5s) na Página
+    </button>
+  </div>
+
+  <div class="toggles-box">
+    <label class="toggle-row">
+      <span>⚡ Rejeitar cookies sempre que possível</span>
+      <input type="checkbox" id="chk-auto-reject" />
+    </label>
+    <label class="toggle-row">
+      <span>🔔 Avisar ao detectar dado sensível</span>
+      <input type="checkbox" id="chk-sensitive-alert" checked />
+    </label>
+    <label class="toggle-row">
+      <span>🔕 Modo Silencioso (Suprimir pop-ups)</span>
+      <input type="checkbox" id="chk-silent-mode" />
+    </label>
+  </div>
+
+  <button id="btn-open-dashboard" class="btn-full">
+    📊 Abrir Dashboard Central Completo (DataLens)
+  </button>
+
+  <script src="popup.js"></script>
+</body>
+</html>
