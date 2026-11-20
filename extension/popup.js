@@ -119,9 +119,25 @@ document.addEventListener("DOMContentLoaded", () => {
   // Botão: Mostrar Cartão de Síntese Veloz (5s) na página atual
   document.getElementById("btn-show-card").addEventListener("click", async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab && tab.id) {
-      chrome.tabs.sendMessage(tab.id, { type: "SHOW_SYNTHESIS_CARD" }).catch(() => {});
-      window.close();
+    if (tab && tab.id && tab.url && tab.url.startsWith("http")) {
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: "SHOW_SYNTHESIS_CARD" });
+        window.close();
+      } catch (e) {
+        // Injeta o content.js caso a aba já estivesse aberta antes da instalação da extensão
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["extension/content.js"]
+          });
+          await chrome.tabs.sendMessage(tab.id, { type: "SHOW_SYNTHESIS_CARD" });
+          window.close();
+        } catch (err) {
+          showStatus("Não foi possível exibir o cartão nesta página restrita.");
+        }
+      }
+    } else {
+      showStatus("Abra um site http/https para exibir a síntese na tela.");
     }
   });
 
