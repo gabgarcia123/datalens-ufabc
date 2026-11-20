@@ -47,14 +47,14 @@ document.addEventListener("DOMContentLoaded", () => {
     elDomain.textContent = siteRecord.domain;
 
     if (siteRecord.riskLevel === "high") {
-      elBadge.className = "badge badge-high";
-      elBadge.textContent = "🔴 Alto Risco";
+      elBadge.className = "badge badge-high mono";
+      elBadge.textContent = "ALTO RISCO";
     } else if (siteRecord.riskLevel === "medium") {
-      elBadge.className = "badge badge-medium";
-      elBadge.textContent = "🟡 Médio Risco";
+      elBadge.className = "badge badge-medium mono";
+      elBadge.textContent = "MÉDIO RISCO";
     } else {
-      elBadge.className = "badge badge-low";
-      elBadge.textContent = "🟢 Seguro / Protegido";
+      elBadge.className = "badge badge-low mono";
+      elBadge.textContent = "CONTROLADO";
     }
 
     const bd = siteRecord.cookieBreakdown || {};
