@@ -503,6 +503,22 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 });
 
+// Atualiza auditoria em navegações SPA (pushState/replaceState) e troca de abas
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === "complete" && tab && tab.url && tab.url.startsWith("http")) {
+    auditTabPrivacy(tabId, tab.url, {}).catch(() => {});
+  }
+});
+
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    if (tab && tab.url && tab.url.startsWith("http")) {
+      auditTabPrivacy(tab.id, tab.url, {}).catch(() => {});
+    }
+  } catch (e) {}
+});
+
 // Escuta mensagens do Content Script, do Popup e do Dashboard
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   (async () => {
@@ -527,7 +543,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         try {
           const resp = await chrome.tabs.sendMessage(tab.id, { type: "GET_DOM_SIGNALS" });
           if (resp && resp.domSignals) domSignals = resp.domSignals;
-        } catch (e) {}
+        } catch (e) {
+          // Aba já estava aberta antes da instalação da extensão: injeta content.js sob demanda
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId: tab.id },
+              files: ["extension/content.js"]
+            });
+            const retryResp = await chrome.tabs.sendMessage(tab.id, { type: "GET_DOM_SIGNALS" });
+            if (retryResp && retryResp.domSignals) domSignals = retryResp.domSignals;
+          } catch (injErr) {}
+        }
       }
       const record = await auditTabPrivacy(tab.id, tab.url, domSignals);
       const prefsData = await chrome.storage.local.get("datalens_preferences");
