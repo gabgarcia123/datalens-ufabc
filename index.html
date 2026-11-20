@@ -6,409 +6,317 @@
   <title>DataLens — Painel de Transparência e Controle Ativo de Dados Pessoais | UFABC (GC5)</title>
   <link rel="stylesheet" href="css/styles.css" />
 </head>
-<body class="bg-slate-950 text-slate-100 antialiased min-h-screen flex flex-col selection:bg-teal-500 selection:text-white">
+<body style="min-height: 100vh; display: flex; flex-direction: column;">
 
   <!-- Container de Notificações Toast (Feedback Visual Imediato de IHC) -->
-  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 pointer-events-auto"></div>
+  <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 60; display: flex; flex-direction: column; gap: 8px; max-width: 380px;"></div>
 
-  <!-- CABEÇALHO SUPERIOR E NAVEGAÇÃO BIMODAL -->
-  <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-lg border-b border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+  <!-- TOPBAR SÓBRIA ESTILO LINEAR / SHADCN -->
+  <header class="dl-topbar">
+    <div class="dl-container" style="height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
       
-      <!-- Identidade Visual DataLens + Selo UFABC GC5 -->
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3.5">
-          <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center text-white shadow-lg shadow-teal-950/60 border border-teal-400/30">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              <circle cx="12" cy="11" r="3"/>
-            </svg>
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <h1 class="text-lg font-extrabold tracking-tight text-white">DataLens</h1>
-              <span class="px-2 py-0.5 rounded-md text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
-                UFABC • GC5
-              </span>
-            </div>
-            <p class="text-xs text-slate-400">Transparência e Controle Ativo de Dados Pessoais</p>
-          </div>
+      <!-- Brand + Tag UFABC -->
+      <div class="flex items-center gap-3">
+        <div style="width: 28px; height: 28px; border-radius: 6px; background-color: var(--teal-brand); display: flex; align-items: center; justify-content: center; color: #FFF;">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
         </div>
-
-        <!-- Botão Mobile Sobre o Projeto -->
-        <button data-action="academic-modal" data-show="true" class="lg:hidden px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold">
-          Sobre (GC5)
-        </button>
+        <div class="flex items-center gap-2">
+          <span style="font-weight: 700; font-size: 14.5px; letter-spacing: -0.02em;">DataLens</span>
+          <span style="color: var(--border-strong);">/</span>
+          <span class="font-mono text-xs text-secondary">ufabc-gc5</span>
+          <span class="dl-badge dl-badge-teal font-mono" style="font-size: 10.5px;">v2.0</span>
+        </div>
       </div>
 
-      <!-- Abas de Navegação do Ecossistema Bimodal -->
-      <nav class="flex flex-wrap items-center gap-2" aria-label="Navegação Principal">
-        <button
-          data-nav-btn="dashboard"
-          data-action="switch-tab"
-          data-tab="dashboard"
-          class="px-4 py-2 rounded-xl text-xs font-bold bg-teal-600 text-white shadow-lg shadow-teal-950/50 flex items-center gap-2 transition"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
-          1. Dashboard Central (Gestão Passiva)
+      <!-- Segmented Control Navigation (Bimodal) -->
+      <nav class="dl-tabs" aria-label="Módulos do Sistema">
+        <button data-nav-btn="dashboard" data-action="switch-tab" data-tab="dashboard" class="dl-tab-btn active">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          Visão Geral & Auditoria
         </button>
-
-        <button
-          data-nav-btn="simulator"
-          data-action="switch-tab"
-          data-tab="simulator"
-          class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 flex items-center gap-2 transition"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
-          2. Simulador da Extensão (Contexto de Navegação)
+        <button data-nav-btn="simulator" data-action="switch-tab" data-tab="simulator" class="dl-tab-btn">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+          Simulador de Contexto (5s)
         </button>
-
-        <button
-          data-nav-btn="preferences"
-          data-action="switch-tab"
-          data-tab="preferences"
-          class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800/80 flex items-center gap-2 transition"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg>
-          3. Preferências & Limites
+        <button data-nav-btn="preferences" data-action="switch-tab" data-tab="preferences" class="dl-tab-btn">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/></svg>
+          Políticas & Limites
         </button>
       </nav>
 
-      <!-- Módulo 3: Botão de Destaque para Pesquisa de Usuários / Avaliação -->
-      <div class="flex items-center gap-2.5">
+      <!-- Ações Globais: Tema Claro/Escuro, Sobre e Pesquisa -->
+      <div class="flex items-center gap-2">
+        <button data-action="toggle-theme" class="dl-btn dl-btn-sm" title="Alternar entre Modo Escuro (Zinc) e Modo Claro">
+          <span id="theme-indicator-text">Tema: Escuro</span>
+        </button>
+        <button data-action="academic-modal" data-show="true" class="dl-btn dl-btn-sm">
+          Especificação IHC
+        </button>
         <a
           href="https://docs.google.com/forms/d/e/1FAIpQLScvcYIpSrS0FcLxmI9klao_sezWayYM6Y6qtL3pcaMxJLyxKg/viewform"
           target="_blank"
           rel="noopener noreferrer"
-          class="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold text-xs shadow-lg flex items-center gap-2 transition"
+          class="dl-btn dl-btn-primary dl-btn-sm"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
-          Participar da Pesquisa / Avaliar Protótipo
+          Avaliar Protótipo (Forms) ↗
         </a>
-
-        <button
-          data-action="academic-modal"
-          data-show="true"
-          class="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700"
-          title="Sobre o Projeto Acadêmico UFABC"
-        >
-          Sobre (GC5)
-        </button>
       </div>
-
     </div>
   </header>
 
   <!-- CONTEÚDO PRINCIPAL -->
-  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-8">
+  <main class="dl-container" style="flex: 1; width: 100%; padding-top: 24px; padding-bottom: 40px;">
 
     <!-- ================================================================== -->
-    <!-- MÓDULO 1: DASHBOARD WEB INTERATIVO (GESTÃO CONTÍNUA / PASSIVA)     -->
+    <!-- MÓDULO 1: DASHBOARD DE AUDITORIA (MANIPULAÇÃO DIRETA)              -->
     <!-- ================================================================== -->
-    <section data-tab-section="dashboard" class="space-y-6">
+    <section data-tab-section="dashboard" style="display: flex; flex-direction: column; gap: 20px;">
       
-      <!-- Faixa de Boas-Vindas e Ações Globais de Manipulação Direta -->
-      <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-teal-950/50 border border-slate-800 rounded-2xl p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div class="space-y-1">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30">
-              Estilo de Interação: Manipulação Direta
-            </span>
-            <span class="text-xs text-slate-400">Semiótica de Alto Contraste: Verde (Seguro) • Amarelo (Analítico) • Vermelho (Terceiros)</span>
+      <!-- Sub-header Executivo + Ações em Lote -->
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 4px;">
+        <div>
+          <div class="flex items-center gap-2" style="margin-bottom: 4px;">
+            <span class="font-mono text-xs text-muted">MÓDULO 01 // GESTÃO PASSIVA & MANIPULAÇÃO DIRETA</span>
           </div>
-          <h2 class="text-xl font-extrabold text-white">Painel Central de Transparência e Controle de Consentimentos</h2>
-          <p class="text-xs text-slate-300 max-w-3xl">
-            Monitore quais portais estão coletando seus dados pessoais, compreenda a finalidade real sem jargões jurídicos e revogue permissões abusivas com um único clique.
-          </p>
+          <h1 style="font-size: 20px; font-weight: 700; letter-spacing: -0.02em; margin: 0;">Inventário de Consentimentos e Exposição de Dados</h1>
         </div>
 
-        <div class="flex flex-wrap items-center gap-2.5 shrink-0">
-          <button
-            data-action="bulk-action"
-            data-mode="protect_all"
-            class="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold shadow-lg shadow-teal-950/50 flex items-center gap-2 transition"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-            Restringir Todos a "Apenas Essenciais"
+        <div class="flex items-center gap-2">
+          <button data-action="bulk-action" data-mode="reset_demo" class="dl-btn">
+            Restaurar Base
           </button>
-          <button
-            data-action="bulk-action"
-            data-mode="reset_demo"
-            class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold transition"
-          >
-            Restaurar Dados de Demonstração
+          <button data-action="bulk-action" data-mode="protect_all" class="dl-btn dl-btn-teal">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+            Restringir Todos a Essenciais
           </button>
         </div>
       </div>
 
-      <!-- 1.1 CARDS DE RESUMO (KPIs NO TOPO) -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <!-- KPI 1: Total de Sites Monitorados -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-start justify-between gap-4 shadow-lg">
-          <div class="space-y-1.5">
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">1. Domínios Auditados</span>
-            <div class="flex items-baseline gap-2">
-              <span id="kpi-total-sites" class="text-3xl font-extrabold text-white">10</span>
-              <span class="text-xs text-teal-400 font-semibold">sites monitorados</span>
-            </div>
-            <p class="text-xs text-slate-400">Histórico ativo sincronizado com a extensão do navegador.</p>
+      <!-- 1.1 KPI STRIP (Estilo Tremor / Vercel Analytics) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- KPI 1 -->
+        <div class="dl-card" style="padding: 16px 18px;">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-secondary">Domínios Monitorados</span>
+            <span class="font-mono text-xs text-muted"> ESCOPO ATIVO </span>
           </div>
-          <div class="w-12 h-12 rounded-2xl bg-teal-500/15 border border-teal-500/30 text-teal-400 flex items-center justify-center shrink-0">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" x2="22" y1="12" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <div class="flex items-baseline gap-2" style="margin-top: 8px;">
+            <span id="kpi-total-sites" class="font-mono text-3xl font-bold">10</span>
+            <span class="text-xs text-muted">origens catalogadas</span>
           </div>
-        </div>
-
-        <!-- KPI 2: Índice de Exposição Digital -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-3 shadow-lg">
-          <div class="flex items-start justify-between gap-2">
-            <div>
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">2. Índice de Exposição Digital</span>
-              <div class="flex items-center gap-3 mt-1">
-                <span id="kpi-exposure-index" class="text-3xl font-extrabold text-white">64%</span>
-                <span id="kpi-exposure-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                  Risco Elevado
-                </span>
-              </div>
-            </div>
-            <div class="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center shrink-0">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-            </div>
-          </div>
-          <div class="space-y-1">
-            <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden">
-              <div id="kpi-exposure-bar" class="h-full bg-rose-500 rounded-full" style="width: 64%"></div>
-            </div>
-            <p class="text-xs text-slate-400">Calculado pela severidade dos dados e número de terceiros ativos.</p>
+          <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-secondary);">
+            <span>Sincronização WebExtension</span>
+            <span class="font-mono" style="color: var(--sem-low);">● Online</span>
           </div>
         </div>
 
-        <!-- KPI 3: Total de Rastreadores de Terceiros Bloqueados/Revogados -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-start justify-between gap-4 shadow-lg">
-          <div class="space-y-1.5">
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">3. Rastreadores Bloqueados</span>
-            <div class="flex items-baseline gap-2">
-              <span id="kpi-blocked-trackers" class="text-3xl font-extrabold text-emerald-400">14</span>
-              <span class="text-xs text-emerald-300 font-semibold">neutralizados</span>
-            </div>
-            <p id="kpi-active-trackers" class="text-xs text-slate-400">116 ativos de 130 detectados</p>
+        <!-- KPI 2 -->
+        <div class="dl-card" style="padding: 16px 18px;">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-secondary">Índice de Exposição Digital</span>
+            <span id="kpi-exposure-badge" class="dl-badge dl-badge-high">Risco Elevado</span>
           </div>
-          <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          <div class="flex items-baseline gap-2" style="margin-top: 8px;">
+            <span id="kpi-exposure-index" class="font-mono text-3xl font-bold">64%</span>
+            <span class="text-xs text-muted">score ponderado</span>
+          </div>
+          <div style="margin-top: 12px;">
+            <div style="width: 100%; height: 5px; background-color: var(--bg-muted); border-radius: 99px; overflow: hidden;">
+              <div id="kpi-exposure-bar" style="height: 100%; width: 64%; background-color: var(--sem-high); transition: width 300ms ease;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI 3 -->
+        <div class="dl-card" style="padding: 16px 18px;">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-secondary">Rastreadores Neutralizados</span>
+            <span class="font-mono text-xs text-muted"> BLOQUEIO ATIVO </span>
+          </div>
+          <div class="flex items-baseline gap-2" style="margin-top: 8px;">
+            <span id="kpi-blocked-trackers" class="font-mono text-3xl font-bold" style="color: var(--sem-low);">14</span>
+            <span class="text-xs text-muted">coletores revogados</span>
+          </div>
+          <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-secondary);">
+            <span>Status dos Coletores</span>
+            <span id="kpi-active-trackers" class="font-mono">116 ativos / 130 total</span>
           </div>
         </div>
       </div>
 
-      <!-- 1.2 VISUALIZAÇÃO DE DADOS (GRÁFICOS INTERATIVOS) -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <!-- Gráfico 1: Rosca / Barras por Categoria de Dados Coletados -->
-        <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4 shadow-lg">
-          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+      <!-- 1.2 GRÁFICOS TÉCNICOS (CATEGORIA & SÉRIE TEMPORAL) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <!-- Gráfico de Categorias -->
+        <div class="dl-card lg:col-span-6">
+          <div class="dl-card-header">
             <div>
-              <span class="text-xs font-bold uppercase tracking-wider text-teal-400">Distribuição Semiótica</span>
-              <h3 class="text-base font-bold text-slate-100">Dados Coletados por Categoria</h3>
+              <div style="font-weight: 600; font-size: 13.5px;">Vetor de Coleta por Categoria Semiótica</div>
+              <div class="text-xs text-muted">Clique em uma categoria para filtrar a tabela de domínios</div>
             </div>
-            <div class="inline-flex rounded-xl bg-slate-950 p-1 border border-slate-800 text-xs">
-              <button data-action="chart-mode" data-mode="donut" class="px-3 py-1 rounded-lg font-semibold text-slate-200 hover:bg-slate-800">Rosca</button>
-              <button data-action="chart-mode" data-mode="bars" class="px-3 py-1 rounded-lg font-semibold text-slate-200 hover:bg-slate-800">Barras</button>
+            <div class="dl-tabs">
+              <button data-action="chart-mode" data-mode="donut" class="dl-tab-btn active" style="padding: 3px 8px; font-size: 11.5px;">Rosca</button>
+              <button data-action="chart-mode" data-mode="bars" class="dl-tab-btn" style="padding: 3px 8px; font-size: 11.5px;">Barras</button>
             </div>
           </div>
-          <div id="category-chart-container" class="py-2"></div>
+          <div class="dl-card-body" id="category-chart-container"></div>
         </div>
 
-        <!-- Gráfico 2: Linha do Tempo de Exposição e Consentimentos Concedidos -->
-        <div class="lg:col-span-6 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4 shadow-lg">
-          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+        <!-- Gráfico de Série Temporal -->
+        <div class="dl-card lg:col-span-6">
+          <div class="dl-card-header">
             <div>
-              <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Evolução Temporal (7 Dias)</span>
-              <h3 class="text-base font-bold text-slate-100">Linha do Tempo de Exposição vs. Bloqueios</h3>
+              <div style="font-weight: 600; font-size: 13.5px;">Histórico de Exposição vs. Mitigação (7d)</div>
+              <div class="text-xs text-muted">Curva reativa atualizada conforme revogações no inventário</div>
             </div>
-            <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold">Reativo em Tempo Real</span>
+            <span class="dl-badge font-mono" style="font-size: 11px;">TEMPO REAL</span>
           </div>
-          <div id="timeline-chart-container" class="py-1"></div>
+          <div class="dl-card-body" id="timeline-chart-container"></div>
         </div>
       </div>
 
-      <!-- 1.3 LISTA FILTRÁVEL DE SITES E HISTÓRICO DE CONSENTIMENTOS -->
-      <div class="space-y-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-lg">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h3 class="text-lg font-bold text-slate-100">Histórico de Consentimentos e Controle Ativo por Site</h3>
-              <p class="text-xs text-slate-400">Filtre por nível de risco, data ou categoria de dado e utilize os botões de ação rápida para revogar permissões.</p>
-            </div>
-            <span id="filtered-sites-count" class="px-3 py-1 rounded-full bg-slate-800 text-teal-300 text-xs font-bold self-start sm:self-center">
-              10 de 10 sites exibidos
-            </span>
+      <!-- 1.3 DATA TABLE DE DOMÍNIOS E CONSENTIMENTOS (Estilo Linear / shadcn Data Table) -->
+      <div class="dl-card">
+        <!-- Toolbar de Filtros da Tabela -->
+        <div class="dl-card-header" style="flex-wrap: wrap; gap: 10px;">
+          <div class="flex items-center gap-2" style="flex: 1; min-width: 240px;">
+            <input
+              id="search-input"
+              type="text"
+              placeholder="Filtrar domínio ou categoria... (Atalho: / ou Ctrl+K)"
+              class="dl-input"
+              style="width: 100%; max-width: 340px;"
+            />
+            <select id="filter-risk" class="dl-select">
+              <option value="all">Risco: Todos</option>
+              <option value="high">Alto Risco (Terceiros)</option>
+              <option value="medium">Médio Risco (Analytics)</option>
+              <option value="low">Baixo Risco (Essencial)</option>
+            </select>
+            <select id="filter-category" class="dl-select">
+              <option value="all">Vetor: Todos</option>
+              <option value="thirdParty">Terceiros / Brokers</option>
+              <option value="marketing">Marketing / Ads</option>
+              <option value="analytics">Analytics</option>
+              <option value="essential">Essenciais</option>
+            </select>
+            <select id="filter-date" class="dl-select">
+              <option value="all">Período: Todos</option>
+              <option value="today">Hoje</option>
+              <option value="recent">Últimos 3 dias</option>
+            </select>
+            <button data-action="reset-filters" class="dl-btn dl-btn-ghost dl-btn-sm">
+              Limpar
+            </button>
           </div>
 
-          <!-- Barra de Busca + Filtros Rápidos -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 pt-1">
-            <!-- Busca por Nome/Domínio -->
-            <div class="lg:col-span-4 relative">
-              <input
-                id="search-input"
-                type="text"
-                placeholder="Buscar site, domínio ou setor (ex: notícias, banco)..."
-                class="w-full bg-slate-950 border border-slate-700 focus:border-teal-500 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none"
-              />
-              <span class="absolute left-3 top-2.5 text-slate-500">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-              </span>
-            </div>
-
-            <!-- Filtro: Nível de Risco -->
-            <div class="lg:col-span-3">
-              <select
-                id="filter-risk"
-                class="w-full bg-slate-950 border border-slate-700 focus:border-teal-500 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none"
-              >
-                <option value="all">Nível de Risco: Todos</option>
-                <option value="high">🔴 Alto Risco (Rastreamento Terceiros)</option>
-                <option value="medium">🟡 Médio Risco (Atenção / Analytics)</option>
-                <option value="low">🟢 Baixo Risco (Seguro / Essencial)</option>
-              </select>
-            </div>
-
-            <!-- Filtro: Categoria de Dado -->
-            <div class="lg:col-span-3">
-              <select
-                id="filter-category"
-                class="w-full bg-slate-950 border border-slate-700 focus:border-teal-500 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none"
-              >
-                <option value="all">Categoria de Dado: Todas</option>
-                <option value="thirdParty">Compartilhamento com Terceiros</option>
-                <option value="marketing">Marketing & Publicidade</option>
-                <option value="analytics">Desempenho & Analytics</option>
-                <option value="essential">Cookies Essenciais</option>
-              </select>
-            </div>
-
-            <!-- Filtro: Data -->
-            <div class="lg:col-span-2 flex gap-2">
-              <select
-                id="filter-date"
-                class="w-full bg-slate-950 border border-slate-700 focus:border-teal-500 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none"
-              >
-                <option value="all">Data: Todas</option>
-                <option value="today">Acessados Hoje</option>
-                <option value="recent">Últimos 3 Dias</option>
-              </select>
-              <button
-                data-action="reset-filters"
-                class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold shrink-0"
-                title="Limpar todos os filtros"
-              >
-                Limpar
-              </button>
-            </div>
+          <div class="flex items-center gap-2">
+            <span id="filtered-sites-count" class="font-mono text-xs text-muted">10 registros</span>
+            <button data-action="export-report" data-format="csv" class="dl-btn dl-btn-sm" title="Exportar inventário em planilha CSV (Art. 18 LGPD)">
+              Exportar CSV
+            </button>
+            <button data-action="export-report" data-format="json" class="dl-btn dl-btn-sm" title="Exportar relatório técnico JSON (Art. 18 LGPD)">
+              Exportar JSON
+            </button>
           </div>
         </div>
 
-        <!-- Lista de Cards de Sites Monitorados -->
-        <div id="sites-list-container" class="space-y-4"></div>
+        <!-- Container da Tabela de Auditoria -->
+        <div id="sites-list-container" class="dl-table-wrap"></div>
       </div>
+
     </section>
 
     <!-- ================================================================== -->
     <!-- MÓDULO 2: SIMULADOR DA EXTENSÃO WEB (MEDIAÇÃO EFÊMERA / ATIVA)     -->
     <!-- ================================================================== -->
-    <section data-tab-section="simulator" class="hidden space-y-6">
+    <section data-tab-section="simulator" class="hidden">
       <div id="simulator-Mount"></div>
     </section>
 
     <!-- ================================================================== -->
-    <!-- MÓDULO 2.3: FORMULÁRIO DE PREFERÊNCIAS E LIMITES DE PRIVACIDADE    -->
+    <!-- MÓDULO 2.3: POLÍTICAS & LIMITES DE PRIVACIDADE                     -->
     <!-- ================================================================== -->
-    <section data-tab-section="preferences" class="hidden space-y-6">
+    <section data-tab-section="preferences" class="hidden">
       <div id="preferences-mount"></div>
     </section>
 
   </main>
 
-  <!-- ==================================================================== -->
-  <!-- MÓDULO 3: RODAPÉ ACADÊMICO DISCRETO + BANNER DE PESQUISA DE USUÁRIOS -->
-  <!-- ==================================================================== -->
-  <footer class="mt-12 bg-slate-900 border-t border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-      <div class="flex items-center gap-3">
-        <span class="w-2.5 h-2.5 rounded-full bg-teal-400"></span>
-        <p class="font-semibold text-slate-200">
-          UFABC • Interação Humano-Computador (2026) • Grupo DataLens (GC5)
-        </p>
+  <!-- RODAPÉ TÉCNICO DISCRETO -->
+  <footer style="border-top: 1px solid var(--border-subtle); background-color: var(--bg-surface); padding: 16px 0; margin-top: auto;">
+    <div class="dl-container" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--text-muted);">
+      <div class="flex items-center gap-2">
+        <span class="dl-dot dl-dot-low"></span>
+        <span class="font-medium text-secondary">UFABC • Interação Humano-Computador (2026) • Grupo DataLens (GC5)</span>
       </div>
-
-      <p class="text-center md:text-left text-slate-400">
-        Grande Desafio de Pesquisa no Brasil (GC5): <em>Interação Humano-Dados, Alfabetização em Dados e Privacidade Utilizável</em>.
-      </p>
-
+      <div>
+        GC5: Interação Humano-Dados, Alfabetização em Dados e Privacidade Utilizável
+      </div>
       <div class="flex items-center gap-3">
-        <button data-action="academic-modal" data-show="true" class="text-teal-400 hover:underline font-semibold">
-          Fundamentação Teórica (Norman)
+        <button data-action="academic-modal" data-show="true" class="dl-btn-ghost" style="padding: 2px 6px; font-size: 12px; cursor: pointer;">
+          Fundamentação (Norman)
         </button>
-        <span>•</span>
+        <span>·</span>
         <a
           href="https://docs.google.com/forms/d/e/1FAIpQLScvcYIpSrS0FcLxmI9klao_sezWayYM6Y6qtL3pcaMxJLyxKg/viewform"
           target="_blank"
           rel="noopener noreferrer"
-          class="text-amber-400 hover:underline font-bold"
+          style="color: var(--text-primary); font-weight: 600; text-decoration: underline;"
         >
-          Formulário Oficial de Avaliação ↗
+          Formulário de Avaliação ↗
         </a>
       </div>
     </div>
   </footer>
 
-  <!-- MODAL ACADÊMICO E DE PESQUISA (MÓDULO 3) -->
-  <div id="academic-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5">
-      <div class="flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
+  <!-- MODAL DE ESPECIFICAÇÃO ACADÊMICA (MÓDULO 3) -->
+  <div id="academic-modal" class="hidden" style="position: fixed; inset: 0; z-index: 50; background-color: rgba(0,0,0,0.7); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 16px;">
+    <div class="dl-card" style="max-width: 580px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+      <div class="dl-card-header">
         <div>
-          <span class="text-xs font-bold uppercase tracking-wider text-teal-400">Fundamentação de IHC & Privacidade Utilizável</span>
-          <h3 class="text-lg font-extrabold text-white mt-0.5">Sobre o Protótipo DataLens (UFABC • GC5)</h3>
+          <span class="font-mono text-xs text-muted">ESPECIFICAÇÃO DE IHC // UFABC GC5</span>
+          <h3 style="font-size: 15px; font-weight: 700; margin: 2px 0 0 0;">Arquitetura Bimodal e Princípios de Donald Norman</h3>
         </div>
-        <button data-action="academic-modal" data-show="false" class="text-slate-400 hover:text-white font-bold text-sm px-2">✕</button>
+        <button data-action="academic-modal" data-show="false" class="dl-btn dl-btn-ghost dl-btn-sm">✕</button>
       </div>
-
-      <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
-        <p>
-          O projeto <strong>DataLens</strong> investiga soluções de <em>Interação Humano-Dados (HDI)</em> para mitigar a <strong>fadiga de consentimento</strong> e neutralizar padrões enganosos (<em>dark patterns</em>) em avisos de privacidade na web.
+      <div class="dl-card-body" style="display: flex; flex-direction: column; gap: 14px; font-size: 12.5px; color: var(--text-secondary);">
+        <p style="margin: 0;">
+          O sistema <strong>DataLens</strong> combate a fadiga de consentimento e os <em>dark patterns</em> restaurando significadores claros e simetria de decisão:
         </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-            <h4 class="font-bold text-teal-300">Significadores & Affordances (Donald Norman)</h4>
-            <p class="text-slate-400">Substituição de textos jurídicos opacos por semiótica de risco (Verde/Amarelo/Vermelho) e botões com peso visual estritamente simétrico.</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div style="padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background-color: var(--bg-background);">
+            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Significadores</div>
+            <div class="text-xs text-muted">Codificação semiótica estrita: Verde (Essencial), Amarelo (Analítico) e Vermelho (Terceiros).</div>
           </div>
-          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-            <h4 class="font-bold text-amber-300">Arquitetura Bimodal</h4>
-            <p class="text-slate-400">Combina mediação efêmera no contexto da navegação (Cartão de Síntese em 5s) com gestão contínua por manipulação direta (Dashboard).</p>
+          <div style="padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background-color: var(--bg-background);">
+            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Affordances Simétricas</div>
+            <div class="text-xs text-muted">Ações de rejeitar, selecionar ou aceitar possuem exatamente a mesma hierarquia visual.</div>
+          </div>
+          <div style="padding: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background-color: var(--bg-background);">
+            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Feedback Imediato</div>
+            <div class="text-xs text-muted">Manipulação direta na tabela com reflexo instantâneo no score de exposição.</div>
           </div>
         </div>
-      </div>
-
-      <div class="bg-teal-950/40 border border-teal-500/40 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div class="text-xs space-y-1">
-          <p class="font-bold text-teal-200">Avalie este Protótipo na Pesquisa Oficial do Grupo!</p>
-          <p class="text-slate-300">Sua participação contribui diretamente para a validação dos requisitos de IHC na UFABC.</p>
+        <div style="padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background-color: var(--bg-elevated); display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+          <div>
+            <div style="font-weight: 600; color: var(--text-primary);">Pesquisa de Validação com Usuários</div>
+            <div class="text-xs text-muted">Contribua avaliando a usabilidade deste protótipo no formulário oficial.</div>
+          </div>
+          <a
+            href="https://docs.google.com/forms/d/e/1FAIpQLScvcYIpSrS0FcLxmI9klao_sezWayYM6Y6qtL3pcaMxJLyxKg/viewform"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="dl-btn dl-btn-primary dl-btn-sm"
+          >
+            Abrir Formulário ↗
+          </a>
         </div>
-        <a
-          href="https://docs.google.com/forms/d/e/1FAIpQLScvcYIpSrS0FcLxmI9klao_sezWayYM6Y6qtL3pcaMxJLyxKg/viewform"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shrink-0 shadow-lg"
-        >
-          Abrir Google Forms ↗
-        </a>
-      </div>
-
-      <div class="flex justify-end pt-2">
-        <button data-action="academic-modal" data-show="false" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold">
-          Fechar Janela
-        </button>
       </div>
     </div>
   </div>
 
-  <!-- Scripts Modulares da Aplicação -->
   <script src="js/mockData.js"></script>
   <script src="js/app.js"></script>
 </body>
