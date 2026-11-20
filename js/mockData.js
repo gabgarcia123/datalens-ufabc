@@ -8,6 +8,7 @@ window.DATALENS_INITIAL_DATA = {
   preferences: {
     prophylacticBlock: false,
     notificationSuppression: false,
+    sensitiveAlertEnabled: true,
     maxThirdPartyTrackers: 5,
     maxRetentionDays: 30,
     allowedCategories: {
