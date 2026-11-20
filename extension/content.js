@@ -273,9 +273,9 @@
       const text = (el.innerText || el.value || el.getAttribute("aria-label") || "")
         .trim()
         .toLowerCase();
-      if (!text || text.length > 55) continue;
+      if (!text || text.length > 48) continue;
 
-      if (rejectKeywords.some((kw) => text === kw || text.includes(kw))) {
+      if (rejectKeywords.some((kw) => text === kw || (kw.length > 8 && text.includes(kw)))) {
         el.click();
         return { clicked: true, method: `Botão "${text.slice(0, 28)}"` };
       }
@@ -339,7 +339,7 @@
     host.id = "datalens-shadow-host";
     host.style.cssText =
       "position: fixed; bottom: 20px; right: 20px; z-index: 2147483647; font-family: system-ui, -apple-system, sans-serif;";
-    document.body.appendChild(host);
+    (document.body || document.documentElement).appendChild(host);
 
     const shadow = host.attachShadow({ mode: "open" });
 
