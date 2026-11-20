@@ -318,11 +318,14 @@ async function auditTabPrivacy(tabId, urlString, domSignals = {}) {
 
   let blockedByAuto = 0;
   let status = "full";
+  const persistedPolicy = prevRecord ? prevRecord.userPolicy : null;
 
-  if (prefs.prophylacticBlock && nonEssentialCookiesCount > 0) {
-    const removed = await removeSiteCookies(hostname, urlString, "non_essential");
-    blockedByAuto = removed;
-    status = "essential_only";
+  if (persistedPolicy === "revoked" || persistedPolicy === "essential_only" || prefs.prophylacticBlock) {
+    const cleanMode = persistedPolicy === "revoked" ? "all" : "non_essential";
+    if (nonEssentialCookiesCount > 0 || (cleanMode === "all" && allCookies.length > 0)) {
+      blockedByAuto = await removeSiteCookies(hostname, urlString, cleanMode);
+    }
+    status = persistedPolicy || "essential_only";
     riskLevel = "low";
   }
 
@@ -330,23 +333,29 @@ async function auditTabPrivacy(tabId, urlString, domSignals = {}) {
   const dateStr = now.toISOString().split("T")[0];
   const timeStr = now.toTimeString().slice(0, 5);
 
-  const trackersTotal = Math.max(
-    allCookies.length + externalTrackersCount,
-    1
-  );
-  const trackersActive =
-    status === "essential_only"
-      ? counts.essential
-      : allCookies.length + externalTrackersCount;
-
-  const cumulativeBlocked =
-    (prevRecord ? prevRecord.trackersBlocked || 0 : 0) +
-    blockedByAuto +
-    (effectiveDomSignals.autoRejectedBanner ? nonEssentialCookiesCount : 0);
-
-  if (effectiveDomSignals.autoRejectedBanner) {
+  if (effectiveDomSignals.autoRejectedBanner && status === "full") {
     status = "essential_only";
     riskLevel = "low";
+  }
+
+  const trackersTotal = Math.max(
+    allCookies.length + externalTrackersCount,
+    prevRecord ? prevRecord.trackersTotal || 1 : 1
+  );
+  const trackersActive =
+    status === "revoked"
+      ? 0
+      : status === "essential_only"
+      ? Math.max(0, counts.essential - blockedByAuto)
+      : allCookies.length + externalTrackersCount;
+
+  // Cálculo determinístico sem inflação infinita ao alternar abas
+  const prevBlocked = prevRecord ? prevRecord.trackersBlocked || 0 : 0;
+  let cumulativeBlocked = prevBlocked;
+  if (blockedByAuto > 0) {
+    cumulativeBlocked = Math.max(prevBlocked, trackersTotal - trackersActive) + blockedByAuto;
+  } else if (status !== "full") {
+    cumulativeBlocked = Math.max(prevBlocked, trackersTotal - trackersActive);
   }
 
   // Monta síntese em linguagem natural sem jargão jurídico
@@ -384,6 +393,7 @@ async function auditTabPrivacy(tabId, urlString, domSignals = {}) {
     accessTime: timeStr,
     riskLevel,
     status,
+    userPolicy: persistedPolicy || (effectiveDomSignals.autoRejectedBanner ? "essential_only" : null),
     trackersTotal,
     trackersActive,
     trackersBlocked: cumulativeBlocked,
@@ -565,18 +575,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else if (message.type === "CLEAR_SITE_COOKIES") {
       const { domain, url, mode } = message;
       const removed = await removeSiteCookies(domain, url, mode || "non_essential");
+      const nextPolicy = mode === "all" ? "revoked" : "essential_only";
 
       // Atualiza registro no storage
       const data = await chrome.storage.local.get("datalens_sites");
       const sites = data.datalens_sites || [];
       const updated = sites.map((s) => {
         if (s.domain === domain) {
+          const nextRawCookies =
+            mode === "all"
+              ? []
+              : (s.rawCookies || []).filter((c) => c.category === "essential");
+          const nextActive = mode === "all" ? 0 : nextRawCookies.length;
           return {
             ...s,
-            status: mode === "all" ? "revoked" : "essential_only",
+            status: nextPolicy,
+            userPolicy: nextPolicy,
             riskLevel: "low",
-            trackersBlocked: (s.trackersBlocked || 0) + Math.max(removed, 1),
-            trackersActive: mode === "all" ? 0 : (s.cookieBreakdown?.essential || 1)
+            rawCookies: nextRawCookies,
+            cookieCount: nextRawCookies.length,
+            trackersBlocked: Math.max(s.trackersBlocked || 0, s.trackersTotal - nextActive),
+            trackersActive: nextActive
           };
         }
         return s;
@@ -588,11 +607,74 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       tabs.forEach((t) => {
         if (t.url && t.url.includes(domain)) {
           chrome.tabs.sendMessage(t.id, { type: "TRIGGER_BANNER_REJECT" }).catch(() => {});
-          updateToolbarBadge(t.id, { status: "essential_only", riskLevel: "low", cookieCount: 0, thirdPartyCompanies: 0 });
+          updateToolbarBadge(t.id, { status: nextPolicy, riskLevel: "low", cookieCount: 0, thirdPartyCompanies: 0 });
         }
       });
 
       sendResponse({ ok: true, removedCount: removed, sites: updated });
+    } else if (message.type === "DELETE_SINGLE_COOKIE") {
+      const { domain, cookieName, cookieDomain, cookiePath, cookieSecure } = message;
+      const cleanDom = (cookieDomain || domain || "").replace(/^\./, "");
+      if (!cleanDom || !cookieName) {
+        sendResponse({ ok: false });
+        return;
+      }
+      const primaryProto = cookieSecure ? "https:" : "http:";
+      const fallbackProto = cookieSecure ? "http:" : "https:";
+      const pathPart = cookiePath || "/";
+      let removedDetail = null;
+      try {
+        removedDetail = await chrome.cookies.remove({
+          url: `${primaryProto}//${cleanDom}${pathPart}`,
+          name: cookieName
+        });
+        if (!removedDetail) {
+          removedDetail = await chrome.cookies.remove({
+            url: `${fallbackProto}//${cleanDom}${pathPart}`,
+            name: cookieName
+          });
+        }
+      } catch (e) {}
+
+      const data = await chrome.storage.local.get("datalens_sites");
+      const sites = data.datalens_sites || [];
+      const updated = sites.map((s) => {
+        if (s.domain === domain) {
+          const filteredRaw = (s.rawCookies || []).filter(
+            (c) => !(c.name === cookieName && (c.domain === cookieDomain || !cookieDomain))
+          );
+          const removedCount = (s.rawCookies || []).length - filteredRaw.length;
+          return {
+            ...s,
+            rawCookies: filteredRaw,
+            cookieCount: Math.max(0, (s.cookieCount || 0) - Math.max(removedCount, 1)),
+            trackersActive: Math.max(0, (s.trackersActive || 0) - 1),
+            trackersBlocked: (s.trackersBlocked || 0) + 1
+          };
+        }
+        return s;
+      });
+      await chrome.storage.local.set({ datalens_sites: updated });
+      sendResponse({ ok: true, removed: Boolean(removedDetail), sites: updated });
+    } else if (message.type === "RESTORE_REAL_SITE_POLICY") {
+      const { domain } = message;
+      const data = await chrome.storage.local.get("datalens_sites");
+      const sites = data.datalens_sites || [];
+      const updated = sites.map((s) => {
+        if (s.domain === domain) {
+          return {
+            ...s,
+            userPolicy: null,
+            status: "full",
+            trackersActive: s.trackersTotal,
+            trackersBlocked: 0,
+            riskLevel: s.thirdPartyCompanies >= 3 ? "high" : "medium"
+          };
+        }
+        return s;
+      });
+      await chrome.storage.local.set({ datalens_sites: updated });
+      sendResponse({ ok: true, sites: updated });
     } else if (message.type === "SAVE_PREFERENCES") {
       await chrome.storage.local.set({ datalens_preferences: message.preferences });
       sendResponse({ ok: true });
@@ -612,13 +694,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       for (const s of sites) {
         await removeSiteCookies(s.domain, s.url, "non_essential");
       }
-      const updated = sites.map((s) => ({
-        ...s,
-        status: "essential_only",
-        riskLevel: "low",
-        trackersBlocked: Math.max(0, s.trackersTotal - 1),
-        trackersActive: 1
-      }));
+      const updated = sites.map((s) => {
+        const essentialRaw = (s.rawCookies || []).filter((c) => c.category === "essential");
+        const nextActive = essentialRaw.length;
+        return {
+          ...s,
+          status: "essential_only",
+          userPolicy: "essential_only",
+          riskLevel: "low",
+          rawCookies: essentialRaw,
+          cookieCount: essentialRaw.length,
+          trackersBlocked: Math.max(0, s.trackersTotal - nextActive),
+          trackersActive: nextActive
+        };
+      });
       await chrome.storage.local.set({ datalens_sites: updated });
       sendResponse({ ok: true, sites: updated });
     } else if (message.type === "OPEN_DASHBOARD") {
