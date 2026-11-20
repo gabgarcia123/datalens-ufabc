@@ -14,6 +14,10 @@
     simulatorScenarios: cloneData(window.DATALENS_INITIAL_DATA.simulatorScenarios),
     timelineHistory: cloneData(window.DATALENS_INITIAL_DATA.timelineHistory),
     expandedSiteIds: {}, // Linhas da tabela com detalhes técnicos expandidos
+    sort: {
+      column: "default", // 'default' | 'domain' | 'risk' | 'thirdParty'
+      direction: "desc"  // 'asc' | 'desc'
+    },
     filters: {
       search: "",
       risk: "all",
@@ -207,6 +211,9 @@
       site.trackersActive = 1;
       site.trackersBlocked = newlyBlocked;
       site.riskLevel = "low";
+      if (!site.isRealSite && Array.isArray(site.rawCookies)) {
+        site.rawCookies = site.rawCookies.filter((c) => c.category === "essential");
+      }
       if (site.isRealSite) {
         triggerRealSiteCookieClean(site.domain, site.url, "non_essential");
       }
@@ -220,6 +227,9 @@
       site.trackersBlocked = site.trackersTotal;
       site.trackersActive = 0;
       site.riskLevel = "low";
+      if (!site.isRealSite && Array.isArray(site.rawCookies)) {
+        site.rawCookies = [];
+      }
       if (site.isRealSite) {
         triggerRealSiteCookieClean(site.domain, site.url, "all");
       }
@@ -233,6 +243,9 @@
       site.trackersBlocked = site.trackersTotal;
       site.trackersActive = 0;
       site.riskLevel = "low";
+      if (!site.isRealSite && Array.isArray(site.rawCookies)) {
+        site.rawCookies = [];
+      }
       if (site.isRealSite) {
         triggerRealSiteCookieClean(site.domain, site.url, "all");
       }
@@ -252,9 +265,21 @@
         );
       } else if (site.isRealSite) {
         site.status = "full";
+        site.userPolicy = null;
         site.trackersActive = site.trackersTotal;
         site.trackersBlocked = 0;
         site.riskLevel = site.thirdPartyCompanies >= 3 ? "high" : "medium";
+        window.postMessage(
+          {
+            source: "DATALENS_WEB_APP",
+            type: "DASHBOARD_RESTORE_REAL_SITE",
+            payload: { domain: site.domain }
+          },
+          "*"
+        );
+        if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ type: "RESTORE_REAL_SITE_POLICY", domain: site.domain });
+        }
         showToast(
           `Status redefinido`,
           `Recarregue a aba de ${site.domain} para auditar novamente.`,
@@ -263,6 +288,48 @@
       }
     }
 
+    renderAll();
+  };
+
+  window.deleteSingleCookie = function (siteId, cookieName, cookieDomain, cookiePath, cookieSecure) {
+    const site = state.sites.find((s) => s.id === siteId);
+    if (!site) return;
+
+    if (Array.isArray(site.rawCookies)) {
+      site.rawCookies = site.rawCookies.filter(
+        (c) => !(c.name === cookieName && (!cookieDomain || c.domain === cookieDomain))
+      );
+    }
+    site.cookieCount = Math.max(0, (site.cookieCount || 1) - 1);
+    site.trackersActive = Math.max(0, (site.trackersActive || 1) - 1);
+    site.trackersBlocked = (site.trackersBlocked || 0) + 1;
+
+    if (site.isRealSite) {
+      const payload = {
+        domain: site.domain,
+        cookieName,
+        cookieDomain,
+        cookiePath: cookiePath || "/",
+        cookieSecure: Boolean(cookieSecure)
+      };
+      window.postMessage(
+        {
+          source: "DATALENS_WEB_APP",
+          type: "DASHBOARD_DELETE_SINGLE_COOKIE",
+          payload
+        },
+        "*"
+      );
+      if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ type: "DELETE_SINGLE_COOKIE", ...payload });
+      }
+    }
+
+    showToast(
+      `Cookie removido: ${cookieName}`,
+      `Identificador isolado excluído de ${site.domain}.`,
+      "low"
+    );
     renderAll();
   };
 
@@ -288,8 +355,13 @@
         "low"
       );
     } else if (mode === "reset_demo") {
+      try {
+        localStorage.removeItem("datalens_v2_state");
+      } catch (e) {}
       state.sites = cloneData(window.DATALENS_INITIAL_DATA.sites);
       state.timelineHistory = cloneData(window.DATALENS_INITIAL_DATA.timelineHistory);
+      state.expandedSiteIds = {};
+      state.sort = { column: "default", direction: "desc" };
       window.postMessage({ source: "DATALENS_WEB_APP", type: "DASHBOARD_RESET_SITES" }, "*");
       if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
         chrome.runtime.sendMessage({ type: "RESET_REAL_SITES" });
@@ -480,8 +552,81 @@
   // ============================================================================
   // DATA TABLE DE SITES MONITORADOS (ESTILO SHADCN / LINEAR)
   // ============================================================================
+  window.sortTable = function (column) {
+    if (state.sort.column === column) {
+      if (state.sort.direction === "desc") {
+        state.sort.direction = "asc";
+      } else {
+        state.sort.column = "default";
+        state.sort.direction = "desc";
+      }
+    } else {
+      state.sort.column = column;
+      state.sort.direction = column === "domain" ? "asc" : "desc";
+    }
+    renderSitesList();
+  };
+
+  function getSiteTechnicalDetails(site) {
+    if (!Array.isArray(site.rawCookies)) {
+      const generated = [];
+      const seenNames = new Set();
+      const pushCookie = (name, domain, secure, category, risk) => {
+        if (seenNames.has(name)) return;
+        seenNames.add(name);
+        generated.push({ name, domain, path: "/", secure, category, risk });
+      };
+
+      (site.dataCollected || []).forEach((item) => {
+        if (item.category === "essential") {
+          pushCookie("session_id", site.domain, true, "essential", "low");
+          pushCookie("csrf_token", site.domain, true, "essential", "low");
+        } else if (item.category === "analytics") {
+          pushCookie("_ga", `.${site.domain}`, true, "analytics", "medium");
+          pushCookie("_gid", `.${site.domain}`, false, "analytics", "medium");
+        } else if (item.category === "marketing") {
+          pushCookie("_gcl_au", `.${site.domain}`, true, "marketing", "high");
+          pushCookie("ads_pref", `.${site.domain}`, false, "marketing", "high");
+        } else if (item.category === "thirdParty") {
+          pushCookie("_fbp", ".connect.facebook.net", true, "thirdParty", "high");
+          pushCookie("rtb_uid", ".doubleclick.net", false, "thirdParty", "high");
+        }
+      });
+
+      if (site.status === "revoked") {
+        site.rawCookies = [];
+      } else if (site.status === "essential_only") {
+        site.rawCookies = generated.filter((c) => c.category === "essential");
+      } else {
+        site.rawCookies = generated;
+      }
+    }
+
+    if (!Array.isArray(site.thirdPartyList)) {
+      const tpPool = [
+        "doubleclick.net",
+        "connect.facebook.net",
+        "criteo.com",
+        "admetrics.io",
+        "taboola.com",
+        "pubmatic.com",
+        "hotjar.com",
+        "clarity.ms"
+      ];
+      site.thirdPartyList =
+        site.thirdPartyCompanies > 0
+          ? tpPool.slice(0, Math.min(site.thirdPartyCompanies, 6))
+          : [];
+    }
+
+    return {
+      cookies: site.rawCookies || [],
+      thirdParties: site.status === "full" ? site.thirdPartyList || [] : []
+    };
+  }
+
   function getFilteredSites() {
-    return state.sites.filter((site) => {
+    const filtered = state.sites.filter((site) => {
       const q = state.filters.search.trim().toLowerCase();
       if (
         q &&
@@ -518,6 +663,27 @@
       }
       return true;
     });
+
+    if (state.sort.column !== "default") {
+      const dir = state.sort.direction === "asc" ? 1 : -1;
+      const riskWeight = { high: 3, medium: 2, low: 1 };
+      filtered.sort((a, b) => {
+        if (state.sort.column === "domain") {
+          return a.name.localeCompare(b.name, "pt-BR") * dir;
+        }
+        if (state.sort.column === "risk") {
+          return ((riskWeight[a.riskLevel] || 0) - (riskWeight[b.riskLevel] || 0)) * dir;
+        }
+        if (state.sort.column === "thirdParty") {
+          const tpA = a.status === "full" ? a.thirdPartyCompanies || 0 : 0;
+          const tpB = b.status === "full" ? b.thirdPartyCompanies || 0 : 0;
+          return (tpA - tpB) * dir;
+        }
+        return 0;
+      });
+    }
+
+    return filtered;
   }
 
   function renderSitesList() {
@@ -541,10 +707,16 @@
       return;
     }
 
+    const sortArrow = (col) => {
+      if (state.sort.column !== col) return `<span class="text-muted" style="opacity:0.45;">↕</span>`;
+      return state.sort.direction === "asc" ? `<span style="color:var(--teal-brand);">↑</span>` : `<span style="color:var(--teal-brand);">↓</span>`;
+    };
+
     const rowsHtml = filtered
       .map((site) => {
         const riskInfo = RISK_META[site.riskLevel];
         const isExpanded = Boolean(state.expandedSiteIds[site.id]);
+        const techDetails = isExpanded ? getSiteTechnicalDetails(site) : null;
 
         const statusLabel =
           site.status === "full"
@@ -561,9 +733,10 @@
                 <button
                   data-action="toggle-row-detail"
                   data-site-id="${site.id}"
+                  aria-expanded="${isExpanded}"
                   class="dl-btn dl-btn-ghost dl-btn-sm font-mono"
                   style="padding: 2px 6px;"
-                  title="Inspecionar finalidade e rastreadores"
+                  title="Inspecionar finalidade, cookies e rastreadores"
                 >
                   ${isExpanded ? "▾" : "▸"}
                 </button>
@@ -675,17 +848,17 @@
                     </div>
                   </div>
 
-                  ${
-                    site.rawCookies && site.rawCookies.length > 0
-                      ? `
-                    <div style="padding-top: 10px; border-top: 1px solid var(--border-subtle);">
-                      <div class="font-mono text-xs text-muted" style="margin-bottom: 6px;">COOKIES REAIS AUDITADOS NESTE DOMÍNIO (${site.rawCookies.length}):</div>
+                  <div style="padding-top: 10px; border-top: 1px solid var(--border-subtle);">
+                    <div class="font-mono text-xs text-muted" style="margin-bottom: 6px;">COOKIES AUDITADOS NESTE DOMÍNIO (${techDetails.cookies.length} ativos — clique em × para remover individualmente):</div>
+                    ${
+                      techDetails.cookies.length > 0
+                        ? `
                       <div class="flex flex-wrap gap-1.5">
-                        ${site.rawCookies
-                          .slice(0, 14)
+                        ${techDetails.cookies
+                          .slice(0, 16)
                           .map(
                             (ck) => `
-                          <span class="dl-badge font-mono" style="font-size: 11px;" title="Domínio: ${ck.domain} | Categoria: ${ck.category}">
+                          <span class="dl-badge font-mono" style="font-size: 11px; padding-right: 4px;" title="Domínio: ${ck.domain} | Categoria: ${ck.category}">
                             <span class="dl-dot ${
                               ck.risk === "high"
                                 ? "dl-dot-high"
@@ -695,23 +868,33 @@
                             }"></span>
                             ${ck.name}
                             <span class="text-muted">(${ck.secure ? "Secure" : "HTTP"})</span>
+                            <button
+                              data-action="delete-single-cookie"
+                              data-site-id="${site.id}"
+                              data-cookie-name="${ck.name}"
+                              data-cookie-domain="${ck.domain}"
+                              data-cookie-path="${ck.path || "/"}"
+                              data-cookie-secure="${Boolean(ck.secure)}"
+                              style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:12px; padding:0 3px; line-height:1;"
+                              title="Excluir somente o cookie ${ck.name}"
+                            >×</button>
                           </span>
                         `
                           )
                           .join("")}
                       </div>
-                    </div>
-                  `
-                      : ""
-                  }
+                    `
+                        : `<div class="text-xs text-muted">Nenhum cookie ativo no armazenamento deste domínio.</div>`
+                    }
+                  </div>
 
                   ${
-                    site.thirdPartyList && site.thirdPartyList.length > 0
+                    techDetails.thirdParties.length > 0
                       ? `
                     <div style="padding-top: 8px; border-top: 1px solid var(--border-subtle);">
                       <div class="font-mono text-xs text-muted" style="margin-bottom: 6px;">CONEXÕES EXTERNAS DE TERCEIROS DETECTADAS:</div>
                       <div class="flex flex-wrap gap-1.5">
-                        ${site.thirdPartyList
+                        ${techDetails.thirdParties
                           .map(
                             (tp) => `<span class="dl-badge dl-badge-high font-mono" style="font-size: 11px;">${tp}</span>`
                           )
@@ -735,10 +918,22 @@
       <table class="dl-table">
         <thead>
           <tr>
-            <th>Domínio / Identificação</th>
-            <th>Severidade</th>
+            <th>
+              <button data-action="sort-table" data-col="domain" class="dl-btn-ghost" style="display:inline-flex; align-items:center; gap:5px; font:inherit; text-transform:inherit; letter-spacing:inherit; color:inherit; cursor:pointer; padding:0;">
+                Domínio / Identificação ${sortArrow("domain")}
+              </button>
+            </th>
+            <th>
+              <button data-action="sort-table" data-col="risk" class="dl-btn-ghost" style="display:inline-flex; align-items:center; gap:5px; font:inherit; text-transform:inherit; letter-spacing:inherit; color:inherit; cursor:pointer; padding:0;">
+                Severidade ${sortArrow("risk")}
+              </button>
+            </th>
             <th>Dados Coletados & Significadores</th>
-            <th>Exposição Externa</th>
+            <th>
+              <button data-action="sort-table" data-col="thirdParty" class="dl-btn-ghost" style="display:inline-flex; align-items:center; gap:5px; font:inherit; text-transform:inherit; letter-spacing:inherit; color:inherit; cursor:pointer; padding:0;">
+                Exposição Externa ${sortArrow("thirdParty")}
+              </button>
+            </th>
             <th style="text-align: right;">Controle Direto</th>
           </tr>
         </thead>
@@ -1100,7 +1295,7 @@
               </div>
 
               <!-- Switch 2 -->
-              <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border-subtle);">
                 <div>
                   <div style="font-weight: 600;">Modo de Supressão de Notificações (Navegação Silenciosa)</div>
                   <div class="text-xs text-secondary">Oculta avisos flutuantes e aplica seu perfil padrão sem interromper o fluxo de trabalho.</div>
@@ -1111,6 +1306,23 @@
                   class="dl-switch"
                   data-checked="${Boolean(p.notificationSuppression)}"
                   aria-label="Alternar Modo Silencioso"
+                >
+                  <div class="dl-switch-thumb"></div>
+                </button>
+              </div>
+
+              <!-- Switch 3 -->
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+                <div>
+                  <div style="font-weight: 600;">Alerta Automático em Coleta de Dados Sensíveis (Cartão 5s)</div>
+                  <div class="text-xs text-secondary">Exibe imediatamente o Cartão de Síntese Veloz ao detectar formulários de CPF, cartão, senha ou rastreadores de alto risco.</div>
+                </div>
+                <button
+                  data-action="toggle-pref"
+                  data-pref-key="sensitiveAlertEnabled"
+                  class="dl-switch"
+                  data-checked="${p.sensitiveAlertEnabled !== false}"
+                  aria-label="Alternar Alerta Automático em Coleta de Dados Sensíveis"
                 >
                   <div class="dl-switch-thumb"></div>
                 </button>
@@ -1201,6 +1413,10 @@
               <div class="flex justify-between">
                 <span class="text-secondary">Notificações</span>
                 <span class="font-mono font-semibold">${p.notificationSuppression ? "SUPRIMIDAS" : "SÍNTESE 5S"}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-secondary">Alerta Dado Sensível</span>
+                <span class="font-mono font-semibold">${p.sensitiveAlertEnabled !== false ? "ATIVO" : "DESATIVADO"}</span>
               </div>
               <div class="flex justify-between">
                 <span class="text-secondary">Limite de Terceiros</span>
@@ -1438,13 +1654,46 @@
         "low"
       );
     } else if (decision === "selected") {
+      const selCats = state.simulator.selectedCustomCategories;
+      const allowAna = Boolean(selCats.analytics);
+      const allowMkt = Boolean(selCats.marketing);
+      const allowTp = Boolean(selCats.thirdParty);
+
       if (dashboardSite) {
-        dashboardSite.status = "essential_only";
-        dashboardSite.trackersBlocked = Math.max(1, Math.floor(dashboardSite.trackersTotal * 0.7));
-        dashboardSite.trackersActive = dashboardSite.trackersTotal - dashboardSite.trackersBlocked;
-        dashboardSite.riskLevel = "medium";
+        const items = dashboardSite.dataCollected || [];
+        const allowedCount = items.filter((item) => {
+          if (item.category === "essential") return true;
+          return Boolean(selCats[item.category]);
+        }).length;
+        const ratio = items.length > 0 ? allowedCount / items.length : 1;
+
+        if (!allowAna && !allowMkt && !allowTp) {
+          dashboardSite.status = "essential_only";
+          dashboardSite.trackersBlocked = Math.max(0, dashboardSite.trackersTotal - 1);
+          dashboardSite.trackersActive = 1;
+          dashboardSite.riskLevel = "low";
+        } else if (allowTp) {
+          dashboardSite.status = "full";
+          dashboardSite.trackersActive = Math.max(1, Math.round(dashboardSite.trackersTotal * ratio));
+          dashboardSite.trackersBlocked = Math.max(0, dashboardSite.trackersTotal - dashboardSite.trackersActive);
+          dashboardSite.riskLevel = "high";
+        } else if (allowMkt) {
+          dashboardSite.status = "essential_only";
+          dashboardSite.trackersActive = Math.max(1, Math.round(dashboardSite.trackersTotal * ratio));
+          dashboardSite.trackersBlocked = Math.max(0, dashboardSite.trackersTotal - dashboardSite.trackersActive);
+          dashboardSite.riskLevel = "medium";
+        } else {
+          dashboardSite.status = "essential_only";
+          dashboardSite.trackersActive = Math.max(1, Math.round(dashboardSite.trackersTotal * ratio));
+          dashboardSite.trackersBlocked = Math.max(0, dashboardSite.trackersTotal - dashboardSite.trackersActive);
+          dashboardSite.riskLevel = "medium";
+        }
       }
-      showToast(`Seleção granular aplicada`, `Preferências salvas para ${scenario.name}.`, "low");
+      showToast(
+        `Seleção granular aplicada`,
+        `Preferências salvas para ${scenario.name} (${allowTp ? "Terceiros ativos" : allowMkt ? "Marketing ativo" : allowAna ? "Analytics ativo" : "Somente Essenciais"}).`,
+        allowTp ? "high" : allowMkt || allowAna ? "medium" : "low"
+      );
     } else if (decision === "accepted") {
       if (dashboardSite) {
         dashboardSite.status = "full";
@@ -1477,7 +1726,11 @@
   }
 
   window.togglePreference = function (key) {
-    state.preferences[key] = !state.preferences[key];
+    const current =
+      key === "sensitiveAlertEnabled"
+        ? state.preferences[key] !== false
+        : Boolean(state.preferences[key]);
+    state.preferences[key] = !current;
     syncPreferencesToExtension();
     showToast(
       "Política atualizada",
@@ -1690,6 +1943,16 @@
         const id = btn.getAttribute("data-site-id");
         state.expandedSiteIds[id] = !state.expandedSiteIds[id];
         renderSitesList();
+      } else if (action === "sort-table") {
+        window.sortTable(btn.getAttribute("data-col"));
+      } else if (action === "delete-single-cookie") {
+        window.deleteSingleCookie(
+          btn.getAttribute("data-site-id"),
+          btn.getAttribute("data-cookie-name"),
+          btn.getAttribute("data-cookie-domain"),
+          btn.getAttribute("data-cookie-path"),
+          btn.getAttribute("data-cookie-secure") === "true"
+        );
       } else if (action === "select-sim-scenario") {
         window.selectSimScenario(btn.getAttribute("data-scenario-id"));
       } else if (action === "toggle-sim-overlay") {
