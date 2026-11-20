@@ -56,6 +56,14 @@
           type: "SAVE_PREFERENCES",
           preferences: event.data.payload
         });
+      } else if (event.data.type === "DASHBOARD_BULK_PROTECT") {
+        chrome.runtime.sendMessage({ type: "PROTECT_ALL_REAL_SITES" }, () =>
+          syncExtensionToDashboard()
+        );
+      } else if (event.data.type === "DASHBOARD_RESET_SITES") {
+        chrome.runtime.sendMessage({ type: "RESET_REAL_SITES" }, () =>
+          syncExtensionToDashboard()
+        );
       }
     });
 
@@ -292,6 +300,34 @@
   }
 
   // ============================================================================
+  // C.2) LIMPEZA DE RASTREADORES EM LOCALSTORAGE E SESSIONSTORAGE
+  // ============================================================================
+  function cleanWebStorageTrackers() {
+    const trackerKeyRegex =
+      /(_ga|_gid|__utm|_fbp|_fbc|amplitude|mixpanel|mp_|_hj|hotjar|clarity|_clck|_clsk|criteo|taboola|outbrain|adroll|hubspot|pardot|retarget|pixel|visitor_id|ab_test)/i;
+    let removedKeys = 0;
+
+    [window.localStorage, window.sessionStorage].forEach((store) => {
+      if (!store) return;
+      try {
+        const keysToRemove = [];
+        for (let i = 0; i < store.length; i++) {
+          const k = store.key(i);
+          if (k && trackerKeyRegex.test(k)) {
+            keysToRemove.push(k);
+          }
+        }
+        keysToRemove.forEach((k) => {
+          store.removeItem(k);
+          removedKeys++;
+        });
+      } catch (e) {}
+    });
+
+    return removedKeys;
+  }
+
+  // ============================================================================
   // D) CARTÃO DE SÍNTESE VELOZ (5s) FLUTUANTE SOBRE O SITE REAL (SHADOW DOM)
   // ============================================================================
   function renderFloatingDataLensAlert(siteRecord, preferences) {
@@ -308,16 +344,19 @@
     const shadow = host.attachShadow({ mode: "open" });
 
     const isHighRisk = siteRecord.riskLevel === "high";
-    const borderColor = isHighRisk ? "#EF4444" : "#F59E0B";
-    const badgeBg = isHighRisk ? "rgba(239, 68, 68, 0.2)" : "rgba(245, 158, 11, 0.2)";
-    const badgeColor = isHighRisk ? "#FCA5A5" : "#FDE68A";
+    const borderColor = isHighRisk ? "rgba(239, 68, 68, 0.45)" : "#27272A";
+    const badgeBg = isHighRisk ? "rgba(239, 68, 68, 0.12)" : "rgba(245, 158, 11, 0.12)";
+    const badgeColor = isHighRisk ? "#EF4444" : "#F59E0B";
 
     const sensitiveListHtml =
       siteRecord.sensitiveSignals && siteRecord.sensitiveSignals.length > 0
         ? siteRecord.sensitiveSignals
             .map(
               (s) =>
-                `<li style="color:#FCA5A5; font-weight:600;">⚠️ ${s.label}</li>`
+                `<li style="color:#EF4444; font-weight:600; display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                  <span style="width:6px; height:6px; border-radius:50%; background:#EF4444; display:inline-block; flex-shrink:0;"></span>
+                  <span>Dado Sensível: ${s.label}</span>
+                </li>`
             )
             .join("")
         : "";
@@ -332,7 +371,7 @@
             ? "#F59E0B"
             : "#10B981";
         return `<li style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
-          <span style="width:7px; height:7px; border-radius:50%; background:${dot}; display:inline-block; flex-shrink:0;"></span>
+          <span style="width:6px; height:6px; border-radius:50%; background:${dot}; display:inline-block; flex-shrink:0;"></span>
           <span>${item.label}</span>
         </li>`;
       })
@@ -341,104 +380,104 @@
     shadow.innerHTML = `
       <style>
         .dl-card {
-          width: 390px;
+          width: 380px;
           max-width: calc(100vw - 32px);
-          background: rgba(15, 23, 42, 0.97);
-          backdrop-filter: blur(16px);
-          color: #F8FAFC;
-          border: 2px solid ${borderColor};
-          border-radius: 16px;
-          padding: 16px;
-          box-shadow: 0 20px 45px rgba(0, 0, 0, 0.65);
-          font-size: 12.5px;
+          background: #09090B;
+          color: #FAFAFA;
+          border: 1px solid ${borderColor};
+          border-radius: 8px;
+          padding: 14px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+          font-size: 12px;
           line-height: 1.45;
-          animation: dlSlideUp 0.3s ease-out;
+          animation: dlSlideUp 0.2s ease-out;
         }
         @keyframes dlSlideUp {
-          from { transform: translateY(25px); opacity: 0; }
+          from { transform: translateY(14px); opacity: 0; }
           to { transform: translateY(0); opacity: 1; }
         }
         .dl-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 1px solid #1E293B;
-          padding-bottom: 10px;
+          border-bottom: 1px solid #27272A;
+          padding-bottom: 9px;
           margin-bottom: 10px;
         }
         .dl-brand {
           display: flex;
           align-items: center;
-          gap: 8px;
-          font-weight: 800;
-          font-size: 13.5px;
-          color: #2DD4BF;
+          gap: 7px;
+          font-weight: 700;
+          font-size: 13px;
+          color: #FAFAFA;
         }
         .dl-badge {
           background: ${badgeBg};
           color: ${badgeColor};
           border: 1px solid ${borderColor};
-          padding: 2px 8px;
-          border-radius: 999px;
-          font-size: 11px;
-          font-weight: 700;
+          padding: 2px 7px;
+          border-radius: 5px;
+          font-size: 10.5px;
+          font-weight: 600;
+          font-family: ui-monospace, Consolas, monospace;
         }
         .dl-close {
           background: transparent;
           border: none;
-          color: #94A3B8;
+          color: #71717A;
           cursor: pointer;
-          font-size: 15px;
-          font-weight: bold;
-          padding: 2px 6px;
+          font-size: 13px;
+          padding: 2px 5px;
         }
-        .dl-close:hover { color: #FFF; }
+        .dl-close:hover { color: #FAFAFA; }
         .dl-section {
-          background: rgba(2, 6, 23, 0.65);
-          border: 1px solid #1E293B;
-          border-radius: 10px;
-          padding: 9px 11px;
+          background: #121215;
+          border: 1px solid #27272A;
+          border-radius: 6px;
+          padding: 8px 10px;
           margin-bottom: 8px;
         }
         .dl-sec-title {
-          font-size: 11px;
-          font-weight: 700;
+          font-size: 10px;
+          font-weight: 600;
           text-transform: uppercase;
           letter-spacing: 0.04em;
-          color: #2DD4BF;
+          color: #71717A;
           margin-bottom: 5px;
+          font-family: ui-monospace, Consolas, monospace;
         }
         .dl-list {
           list-style: none;
           padding: 0;
           margin: 0;
-          color: #E2E8F0;
+          color: #D4D4D8;
         }
         .dl-actions {
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 8px;
-          margin-top: 12px;
+          gap: 6px;
+          margin-top: 10px;
         }
         .dl-btn {
-          padding: 9px 10px;
-          border-radius: 10px;
-          font-size: 12px;
-          font-weight: 700;
+          padding: 8px 10px;
+          border-radius: 6px;
+          font-size: 11.5px;
+          font-weight: 600;
           cursor: pointer;
-          border: 1px solid #475569;
-          background: #1E293B;
-          color: #F8FAFC;
+          border: 1px solid #27272A;
+          background: #18181B;
+          color: #FAFAFA;
           text-align: center;
-          transition: all 0.15s;
+          transition: all 0.12s;
         }
         .dl-btn:hover {
-          background: #0D9488;
-          border-color: #2DD4BF;
+          background: #27272A;
+          border-color: #3F3F46;
         }
         .dl-btn-primary {
           background: #0D9488;
-          border-color: #14B8A6;
+          border-color: #0D9488;
           color: #FFFFFF;
         }
         .dl-btn-primary:hover {
@@ -450,12 +489,12 @@
           align-items: center;
           margin-top: 10px;
           padding-top: 8px;
-          border-top: 1px solid #1E293B;
+          border-top: 1px solid #27272A;
           font-size: 11px;
-          color: #94A3B8;
+          color: #A1A1AA;
         }
         .dl-link {
-          color: #2DD4BF;
+          color: #FAFAFA;
           text-decoration: underline;
           cursor: pointer;
           background: none;
@@ -469,18 +508,19 @@
       <div class="dl-card" role="dialog" aria-label="Alerta de Privacidade DataLens">
         <div class="dl-header">
           <div class="dl-brand">
-            <span>🛡️ DataLens • Síntese em 5s</span>
+            <span style="width:8px; height:8px; border-radius:2px; background:#0D9488; display:inline-block;"></span>
+            <span>DataLens · Síntese (5s)</span>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
             <span class="dl-badge">${
-              isHighRisk ? "🔴 Dado Sensível / Alto Risco" : "🟡 Atenção"
+              isHighRisk ? "ALTO RISCO" : "ATENÇÃO"
             }</span>
             <button class="dl-close" id="dl-close-btn" title="Fechar">✕</button>
           </div>
         </div>
 
         <div class="dl-section">
-          <div class="dl-sec-title">1. O que está sendo coletado em ${siteRecord.domain}?</div>
+          <div class="dl-sec-title">01 // COLETADO EM ${siteRecord.domain.toUpperCase()}</div>
           <ul class="dl-list">
             ${sensitiveListHtml}
             ${collectedItemsHtml}
@@ -488,24 +528,24 @@
         </div>
 
         <div class="dl-section">
-          <div class="dl-sec-title" style="color:#FBBF24;">2. Finalidade & Compartilhamento</div>
-          <div style="color:#CBD5E1; font-size:12px;">
+          <div class="dl-sec-title">02 // FINALIDADE & COMPARTILHAMENTO</div>
+          <div style="color:#D4D4D8; font-size:11.5px;">
             ${siteRecord.purposeSummary}
-            <div style="margin-top:4px; color:#FCA5A5; font-weight:700;">
-              🔗 Conectado a ${siteRecord.thirdPartyCompanies} domínios de terceiros e ${siteRecord.cookieCount} cookies locais.
+            <div style="margin-top:4px; color:#A1A1AA; font-family:ui-monospace,Consolas,monospace; font-size:11px;">
+              Exposição: <strong style="color:#FAFAFA;">${siteRecord.thirdPartyCompanies} terceiros</strong> · <strong style="color:#FAFAFA;">${siteRecord.cookieCount} cookies</strong>
             </div>
           </div>
         </div>
 
-        <div id="dl-feedback-msg" style="display:none; padding:8px; border-radius:8px; background:rgba(16,185,129,0.2); border:1px solid #10B981; color:#A7F3D0; font-weight:600; text-align:center; margin-top:8px;"></div>
+        <div id="dl-feedback-msg" style="display:none; padding:7px; border-radius:6px; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); color:#10B981; font-weight:600; text-align:center; margin-top:8px;"></div>
 
         <!-- Botões Simétricos Sem Dark Patterns -->
         <div class="dl-actions" id="dl-action-buttons">
           <button class="dl-btn dl-btn-primary" id="dl-reject-btn">
-            🚫 Rejeitar & Limpar Não-Essenciais
+            Rejeitar Não-Essenciais
           </button>
           <button class="dl-btn" id="dl-keep-btn">
-            Permitir Apenas Nesta Sessão
+            Permitir na Sessão
           </button>
         </div>
 
@@ -516,7 +556,7 @@
             } style="accent-color:#0D9488;" />
             <span>Rejeitar sempre automaticamente</span>
           </label>
-          <button class="dl-link" id="dl-open-dash-btn">Abrir Dashboard ↗</button>
+          <button class="dl-link" id="dl-open-dash-btn">Inventário ↗</button>
         </div>
       </div>
     `;
@@ -531,6 +571,7 @@
 
     shadow.getElementById("dl-reject-btn").addEventListener("click", () => {
       const rejectBannerRes = tryRejectCookieBanners(true);
+      const storageCleaned = cleanWebStorageTrackers();
       chrome.runtime.sendMessage(
         {
           type: "CLEAR_SITE_COOKIES",
@@ -545,8 +586,8 @@
           if (fb) {
             fb.style.display = "block";
             fb.textContent = `✓ Protegido! ${
-              res?.removedCount || 0
-            } cookies rastreadores apagados${
+              (res?.removedCount || 0) + storageCleaned
+            } rastreadores/cookies removidos${
               rejectBannerRes.clicked ? ` + Banner rejeitado (${rejectBannerRes.method})` : ""
             }.`;
           }
@@ -589,14 +630,35 @@
 
         // 1. Se o "Bloqueio Automático Profilático" (Rejeitar sempre que possível) estiver ativo:
         if (preferences.prophylacticBlock) {
+          cleanWebStorageTrackers();
           const rejectResult = tryRejectCookieBanners(true);
           if (rejectResult.clicked) {
-            // Informa ao background que o banner foi rejeitado automaticamente
             chrome.runtime.sendMessage({
               type: "ANALYZE_PAGE",
               url: window.location.href,
               domSignals: { ...signals, autoRejectedBanner: true }
             });
+          } else {
+            // MutationObserver de 8s para banners de cookies lentos (OneTrust/Cookiebot assíncronos em SPAs)
+            let bannerHandled = false;
+            const obs = new MutationObserver(() => {
+              if (bannerHandled) return;
+              const lateTry = tryRejectCookieBanners(true);
+              if (lateTry.clicked) {
+                bannerHandled = true;
+                obs.disconnect();
+                cleanWebStorageTrackers();
+                chrome.runtime.sendMessage({
+                  type: "ANALYZE_PAGE",
+                  url: window.location.href,
+                  domSignals: { ...scanPagePrivacySignals(), autoRejectedBanner: true }
+                });
+              }
+            });
+            if (document.body) {
+              obs.observe(document.body, { childList: true, subtree: true });
+              setTimeout(() => obs.disconnect(), 8500);
+            }
           }
         }
 
@@ -620,11 +682,22 @@
   // Executa após o carregamento inicial da página
   setTimeout(runPageInspection, 900);
 
-  // Escuta comandos vindos do Popup da extensão
+  // Fecha o alerta flutuante com a tecla Esc (Acessibilidade IHC)
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const host = document.getElementById("datalens-shadow-host");
+      if (host) host.remove();
+    }
+  });
+
+  // Escuta comandos vindos do Popup ou Background da extensão
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-    if (msg.type === "TRIGGER_BANNER_REJECT") {
+    if (msg.type === "GET_DOM_SIGNALS") {
+      sendResponse({ ok: true, domSignals: scanPagePrivacySignals() });
+    } else if (msg.type === "TRIGGER_BANNER_REJECT") {
+      const storageCleaned = cleanWebStorageTrackers();
       const res = tryRejectCookieBanners(true);
-      sendResponse(res);
+      sendResponse({ ...res, storageCleaned });
     } else if (msg.type === "SHOW_SYNTHESIS_CARD") {
       const signals = scanPagePrivacySignals();
       chrome.runtime.sendMessage(
