@@ -1736,7 +1736,7 @@
     });
 
     function mergeExtensionData(realSites, extPrefs) {
-      if (Array.isArray(realSites) && realSites.length > 0) {
+      if (Array.isArray(realSites)) {
         const mockSites = state.sites.filter((s) => !s.isRealSite);
         state.sites = [...realSites, ...mockSites];
       }
