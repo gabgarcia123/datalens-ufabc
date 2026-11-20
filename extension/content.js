@@ -64,6 +64,16 @@
         chrome.runtime.sendMessage({ type: "RESET_REAL_SITES" }, () =>
           syncExtensionToDashboard()
         );
+      } else if (event.data.type === "DASHBOARD_DELETE_SINGLE_COOKIE") {
+        chrome.runtime.sendMessage(
+          { type: "DELETE_SINGLE_COOKIE", ...event.data.payload },
+          () => syncExtensionToDashboard()
+        );
+      } else if (event.data.type === "DASHBOARD_RESTORE_REAL_SITE") {
+        chrome.runtime.sendMessage(
+          { type: "RESTORE_REAL_SITE_POLICY", ...event.data.payload },
+          () => syncExtensionToDashboard()
+        );
       }
     });
 
