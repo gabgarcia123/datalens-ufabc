@@ -156,7 +156,18 @@ async function auditTabPrivacy(tabId, urlString, domSignals = {}) {
   // Busca cookies pela URL e pelo domínio base
   const byUrl = await chrome.cookies.getAll({ url: urlString });
   const baseParts = hostname.split(".");
-  const rootDomain = baseParts.length >= 2 ? baseParts.slice(-2).join(".") : hostname;
+  // Suporte a TLDs compostos brasileiros e globais (.com.br, .edu.br, .gov.br, .org.br, .jor.br, .tur.br, .co.uk)
+  const isCompoundTld =
+    baseParts.length >= 3 &&
+    baseParts[baseParts.length - 1].length === 2 &&
+    ["com", "edu", "gov", "org", "jus", "mil", "net", "jor", "tur", "co", "ac"].includes(
+      baseParts[baseParts.length - 2].toLowerCase()
+    );
+  const rootDomain = isCompoundTld
+    ? baseParts.slice(-3).join(".")
+    : baseParts.length >= 2
+    ? baseParts.slice(-2).join(".")
+    : hostname;
   const byDomain = await chrome.cookies.getAll({ domain: rootDomain });
 
   // Deduplica cookies reais encontrados
@@ -178,6 +189,36 @@ async function auditTabPrivacy(tabId, urlString, domSignals = {}) {
     ...classifyCookie(c, hostname)
   }));
 
+  // Preserva domSignals anteriores caso a chamada venha do Popup (que envia domSignals vazio)
+  const storageData = await chrome.storage.local.get(["datalens_preferences", "datalens_sites"]);
+  const prefs = storageData.datalens_preferences || DEFAULT_PREFERENCES;
+  const existingSites = storageData.datalens_sites || [];
+  const prevRecord = existingSites.find((s) => s.domain === hostname);
+
+  const effectiveDomSignals = {
+    pageTitle: domSignals.pageTitle || (prevRecord ? prevRecord.name : hostname),
+    thirdPartyDomains:
+      domSignals.thirdPartyDomains && domSignals.thirdPartyDomains.length > 0
+        ? domSignals.thirdPartyDomains
+        : prevRecord && Array.isArray(prevRecord.thirdPartyList)
+        ? prevRecord.thirdPartyList
+        : [],
+    sensitiveFields:
+      domSignals.sensitiveFields && domSignals.sensitiveFields.length > 0
+        ? domSignals.sensitiveFields
+        : prevRecord && Array.isArray(prevRecord.sensitiveSignals)
+        ? prevRecord.sensitiveSignals
+        : [],
+    bannerDetected:
+      typeof domSignals.bannerDetected === "boolean"
+        ? domSignals.bannerDetected
+        : Boolean(prevRecord && prevRecord.bannerDetected),
+    autoRejectedBanner:
+      typeof domSignals.autoRejectedBanner === "boolean"
+        ? domSignals.autoRejectedBanner
+        : Boolean(prevRecord && prevRecord.autoRejectedBanner)
+  };
+
   // Contabiliza categorias reais
   const counts = {
     essential: 0,
@@ -185,7 +226,7 @@ async function auditTabPrivacy(tabId, urlString, domSignals = {}) {
     marketing: 0,
     thirdParty: 0
   };
-  const thirdPartyDomainsSet = new Set(domSignals.thirdPartyDomains || []);
+  const thirdPartyDomainsSet = new Set(effectiveDomSignals.thirdPartyDomains || []);
 
   classifiedCookies.forEach((c) => {
     counts[c.category] = (counts[c.category] || 0) + 1;
@@ -246,7 +287,7 @@ async function auditTabPrivacy(tabId, urlString, domSignals = {}) {
   }
 
   // Sinais de dados sensíveis detectados diretamente na página pelo content.js
-  const sensitiveSignals = domSignals.sensitiveFields || [];
+  const sensitiveSignals = effectiveDomSignals.sensitiveFields || [];
   sensitiveSignals.forEach((sig, i) => {
     dataCollected.push({
       id: `sens-${i}`,
@@ -275,11 +316,6 @@ async function auditTabPrivacy(tabId, urlString, domSignals = {}) {
     riskLevel = "medium";
   }
 
-  // Verifica preferências para saber se deve aplicar rejeição/limpeza automática
-  const storageData = await chrome.storage.local.get(["datalens_preferences", "datalens_sites"]);
-  const prefs = storageData.datalens_preferences || DEFAULT_PREFERENCES;
-  const existingSites = storageData.datalens_sites || [];
-
   let blockedByAuto = 0;
   let status = "full";
 
@@ -303,13 +339,12 @@ async function auditTabPrivacy(tabId, urlString, domSignals = {}) {
       ? counts.essential
       : allCookies.length + externalTrackersCount;
 
-  const prevRecord = existingSites.find((s) => s.domain === hostname);
   const cumulativeBlocked =
     (prevRecord ? prevRecord.trackersBlocked || 0 : 0) +
     blockedByAuto +
-    (domSignals.autoRejectedBanner ? nonEssentialCookiesCount : 0);
+    (effectiveDomSignals.autoRejectedBanner ? nonEssentialCookiesCount : 0);
 
-  if (domSignals.autoRejectedBanner) {
+  if (effectiveDomSignals.autoRejectedBanner) {
     status = "essential_only";
     riskLevel = "low";
   }
@@ -339,8 +374,8 @@ async function auditTabPrivacy(tabId, urlString, domSignals = {}) {
   const siteRecord = {
     id: `real-${hostname.replace(/[^a-z0-9]/gi, "-")}`,
     isRealSite: true,
-    name: domSignals.pageTitle
-      ? domSignals.pageTitle.split(/[-|•—]/)[0].trim().slice(0, 38) || hostname
+    name: effectiveDomSignals.pageTitle
+      ? effectiveDomSignals.pageTitle.split(/[-|•—]/)[0].trim().slice(0, 38) || hostname
       : hostname,
     domain: hostname,
     url: urlString,
@@ -358,8 +393,8 @@ async function auditTabPrivacy(tabId, urlString, domSignals = {}) {
     cookieBreakdown: counts,
     rawCookies: classifiedCookies.slice(0, 30),
     sensitiveSignals,
-    bannerDetected: Boolean(domSignals.bannerDetected),
-    autoRejectedBanner: Boolean(domSignals.autoRejectedBanner),
+    bannerDetected: Boolean(effectiveDomSignals.bannerDetected),
+    autoRejectedBanner: Boolean(effectiveDomSignals.autoRejectedBanner),
     dataCollected,
     purposeSummary: purposeList.join(". ") + "."
   };
@@ -408,7 +443,17 @@ function updateToolbarBadge(tabId, siteRecord) {
  */
 async function removeSiteCookies(hostname, urlString, mode = "non_essential") {
   const baseParts = hostname.split(".");
-  const rootDomain = baseParts.length >= 2 ? baseParts.slice(-2).join(".") : hostname;
+  const isCompoundTld =
+    baseParts.length >= 3 &&
+    baseParts[baseParts.length - 1].length === 2 &&
+    ["com", "edu", "gov", "org", "jus", "mil", "net", "jor", "tur", "co", "ac"].includes(
+      baseParts[baseParts.length - 2].toLowerCase()
+    );
+  const rootDomain = isCompoundTld
+    ? baseParts.slice(-3).join(".")
+    : baseParts.length >= 2
+    ? baseParts.slice(-2).join(".")
+    : hostname;
 
   const byDomain = await chrome.cookies.getAll({ domain: rootDomain });
   let byUrl = [];
@@ -477,7 +522,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: false });
         return;
       }
-      const record = await auditTabPrivacy(tab.id, tab.url, {});
+      let domSignals = {};
+      if (tab.id && tab.url.startsWith("http")) {
+        try {
+          const resp = await chrome.tabs.sendMessage(tab.id, { type: "GET_DOM_SIGNALS" });
+          if (resp && resp.domSignals) domSignals = resp.domSignals;
+        } catch (e) {}
+      }
+      const record = await auditTabPrivacy(tab.id, tab.url, domSignals);
       const prefsData = await chrome.storage.local.get("datalens_preferences");
       sendResponse({
         ok: true,
@@ -525,6 +577,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sites: data.datalens_sites || [],
         preferences: data.datalens_preferences || DEFAULT_PREFERENCES
       });
+    } else if (message.type === "RESET_REAL_SITES") {
+      await chrome.storage.local.set({ datalens_sites: [] });
+      sendResponse({ ok: true });
+    } else if (message.type === "PROTECT_ALL_REAL_SITES") {
+      const data = await chrome.storage.local.get("datalens_sites");
+      const sites = data.datalens_sites || [];
+      for (const s of sites) {
+        await removeSiteCookies(s.domain, s.url, "non_essential");
+      }
+      const updated = sites.map((s) => ({
+        ...s,
+        status: "essential_only",
+        riskLevel: "low",
+        trackersBlocked: Math.max(0, s.trackersTotal - 1),
+        trackersActive: 1
+      }));
+      await chrome.storage.local.set({ datalens_sites: updated });
+      sendResponse({ ok: true, sites: updated });
     } else if (message.type === "OPEN_DASHBOARD") {
       const dashUrl = chrome.runtime.getURL("index.html");
       await chrome.tabs.create({ url: dashUrl });
